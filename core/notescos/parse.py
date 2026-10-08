@@ -44,6 +44,9 @@ IN_N_RE = re.compile(
 WEEKDAY_RE = re.compile(rf"\b(?:(next|this)\s+)?({_alt(WEEKDAYS)})\b", _FLAGS)
 WEEKDAY_SHORT_RE = re.compile(
     rf"\b(on|by|next|this)\s+({_alt(WEEKDAY_SHORT)})\b", _FLAGS)
+# 22/09, 22/09/2026, 22.09.26, 22-09-2026. Letters, digits and separators may
+# not touch it, so ISO dates, versions (v1.2.3) and "24h" are left alone.
+NUMERIC_RE = re.compile(r"(?<![\w./-])(\d{1,2})([/.-])(\d{1,2})(?:\2(\d{4}|\d{2}))?(?!\d)")
 TIME_12H_RE = re.compile(r"\b(?:at\s+)?(\d{1,2})(?::(\d{2}))?\s*(am|pm)\b", _FLAGS)
 TIME_24H_RE = re.compile(r"\b(?:at\s+)?([01]?\d|2[0-3]):([0-5]\d)\b", _FLAGS)
 NOON_RE = re.compile(r"\b(?:at\s+)?noon\b", _FLAGS)
@@ -92,7 +95,43 @@ def _weekday_date(target: int, qualifier: str, today: date, notes: List[str]) ->
     return today + timedelta(days=ahead)
 
 
-def _date_hits(text: str, now: datetime) -> List[_Hit]:
+def _numeric_hits(text: str, today: date, order: str) -> List[_Hit]:
+    """Dates like 22/09. When both parts could be a month, `order` decides."""
+    hits: List[_Hit] = []
+    for m in NUMERIC_RE.finditer(text):
+        first, sep, second = int(m[1]), m[2], int(m[3])
+        if m[4] is None and sep != "/":
+            continue  # "1.5" and "4-5" are far more likely numbers than dates
+        year = None
+        if m[4]:
+            year = int(m[4]) + (2000 if len(m[4]) == 2 else 0)
+        ambiguous = False
+        if first > 12 and second <= 12:
+            day, month = first, second
+        elif second > 12 and first <= 12:
+            month, day = first, second
+        elif first <= 12 and second <= 12:
+            day, month = (first, second) if order == "dmy" else (second, first)
+            ambiguous = first != second
+        else:
+            continue
+        notes: List[str] = []
+        found = _month_day(month, day, year, today, notes)
+        if not found:
+            continue
+        if ambiguous:
+            other = _month_day(day, month, year, today, [])
+            label = "day/month" if order == "dmy" else "month/day"
+            switch = "mdy" if order == "dmy" else "dmy"
+            notes.append(
+                f"read {m[0]} as {label}: {found:%a %d %b %Y}. If you meant "
+                f"{other:%a %d %b %Y}, write the month name or set NOTESCOS_DATE_ORDER={switch}"
+            )
+        hits.append(_Hit(m.start(), m.end(), found, None, notes))
+    return hits
+
+
+def _date_hits(text: str, now: datetime, order: str = "dmy") -> List[_Hit]:
     today = now.date()
     hits: List[_Hit] = []
 
@@ -103,6 +142,8 @@ def _date_hits(text: str, now: datetime) -> List[_Hit]:
         except ValueError:
             continue
         hits.append(_Hit(m.start(), m.end(), day, at, [], has_own_time=at is not None))
+
+    hits.extend(_numeric_hits(text, today, order))
 
     for m in DAY_FIRST_RE.finditer(text):
         notes: List[str] = []
@@ -161,15 +202,20 @@ def _find_time(text: str):
     return None
 
 
-def parse_due(text: str, now: Optional[datetime] = None) -> Optional[ParsedDue]:
+def parse_due(
+    text: str, now: Optional[datetime] = None, date_order: str = "dmy"
+) -> Optional[ParsedDue]:
     """Read a due date/time from text like "Call Sara on 22 sep at 3pm".
 
     Returns None when the text holds no date or time. Whenever a guess was
     needed (a year, a weekday that is today, a time already past) it is listed
-    in `assumptions` so the caller can show it to the user.
+    in `assumptions` so the caller can show it to the user. `date_order` says
+    how to read 03/04: "dmy" (3 April) or "mdy" (March 4).
     """
+    if date_order not in ("dmy", "mdy"):
+        raise ValueError("date_order must be 'dmy' or 'mdy'")
     now = now or datetime.now()
-    hits = _date_hits(text, now)
+    hits = _date_hits(text, now, date_order)
     spoken_time = None if any(h.has_own_time for h in hits) else _find_time(text)
 
     if hits:

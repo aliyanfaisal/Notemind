@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from datetime import datetime
 from typing import List, Optional, TextIO
@@ -62,7 +63,10 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
             if args.command == "add":
                 text = " ".join(args.text)
                 # An explicit --due wins; otherwise read the date from the sentence.
-                found = parse_due(args.due or text, now)
+                order = os.environ.get("NOTESCOS_DATE_ORDER", "dmy").lower()
+                if order not in ("dmy", "mdy"):
+                    raise NoteError("NOTESCOS_DATE_ORDER must be 'dmy' or 'mdy'.")
+                found = parse_due(args.due or text, now, order)
                 due = found.due if found else args.due
                 note = store.add(
                     text, type=args.type, due=due,

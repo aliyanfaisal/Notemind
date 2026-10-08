@@ -63,6 +63,21 @@ class CliTests(unittest.TestCase):
         _, out, _ = self.run_cli("add", "Think about the database")
         self.assertNotIn("due", out)
 
+    def test_ambiguous_numeric_date_is_confirmed_in_the_reply(self):
+        _, out, _ = self.run_cli("add", "Meet Ali 04/12")
+        self.assertIn("(due 2026-12-04)", out)
+        self.assertIn("! read 04/12 as day/month: Fri 04 Dec 2026", out)
+        self.assertIn("Mon 12 Apr 2027", out)
+
+    def test_date_order_setting(self):
+        with mock.patch.dict(os.environ, {"NOTESCOS_DATE_ORDER": "mdy"}):
+            _, out, _ = self.run_cli("add", "Meet Ali 04/12")
+        self.assertIn("(due 2027-04-12)", out)
+        with mock.patch.dict(os.environ, {"NOTESCOS_DATE_ORDER": "ymd"}):
+            code, _, err = self.run_cli("add", "Meet Ali 04/12")
+        self.assertEqual(code, 1)
+        self.assertIn("NOTESCOS_DATE_ORDER", err)
+
     def test_json_output(self):
         _, out, _ = self.run_cli("--json", "add", "Ship it", "--tag", "release")
         self.assertEqual(json.loads(out)["tags"], ["release"])

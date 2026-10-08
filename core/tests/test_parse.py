@@ -82,6 +82,54 @@ class ParseDueTests(unittest.TestCase):
         self.assertEqual(found.due, "2025-09-22")
         self.assertTrue(found.assumptions)
 
+    def test_numeric_dates_unambiguous(self):
+        cases = {
+            "pay 25/10": "2026-10-25",         # 25 can only be a day
+            "pay 10/25": "2026-10-25",         # 25 can only be a day, so month first
+            "pay 05/05": "2027-05-05",         # same either way, year rolled
+            "due 22/10/2026": "2026-10-22",
+            "due 22.10.26": "2026-10-22",
+            "due 22-10-2026": "2026-10-22",
+            "pay 25/10 at 4pm": "2026-10-25T16:00",
+        }
+        for text, expected in cases.items():
+            with self.subTest(text=text):
+                found = parse_due(text, NOW)
+                self.assertEqual(found.due, expected)
+                self.assertFalse([a for a in found.assumptions if a.startswith("read ")])
+
+    def test_users_numeric_example_rolls_to_next_year(self):
+        found = parse_due("Call Sara on 22/09", NOW)
+        self.assertEqual(found.due, "2027-09-22")
+        self.assertIn("2027", found.assumptions[0])
+
+    def test_ambiguous_numeric_date_states_both_readings(self):
+        found = parse_due("meet 04/12", NOW)  # day first by default
+        self.assertEqual(found.due, "2026-12-04")
+        note = found.assumptions[-1]
+        self.assertIn("day/month", note)
+        self.assertIn("Fri 04 Dec 2026", note)
+        self.assertIn("Mon 12 Apr 2027", note)
+        self.assertIn("NOTESCOS_DATE_ORDER=mdy", note)
+
+    def test_month_first_order(self):
+        found = parse_due("meet 04/12", NOW, date_order="mdy")
+        self.assertEqual(found.due, "2027-04-12")
+        self.assertIn("month/day", found.assumptions[-1])
+        self.assertIn("NOTESCOS_DATE_ORDER=dmy", found.assumptions[-1])
+
+    def test_invalid_date_order(self):
+        with self.assertRaises(ValueError):
+            parse_due("meet 04/12", NOW, date_order="ymd")
+
+    def test_numbers_that_are_not_dates(self):
+        for text in (
+            "took 1.5 hours", "scored 4-5", "upgrade to v1.2.3", "version 1.2.3",
+            "call 32/13", "see 2026-13-45", "ratio 100/200",
+        ):
+            with self.subTest(text=text):
+                self.assertIsNone(due(text))
+
     def test_no_false_positives(self):
         for text in (
             "I may call Sara",
