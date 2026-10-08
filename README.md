@@ -1,4 +1,6 @@
-# 📌 Notemind
+<p align="center">
+  <img src="assets/notemind-logo.png" alt="Notemind" width="480">
+</p>
 
 **A Claude Code plugin that saves your notes and reminds you when they are due.**
 
@@ -55,9 +57,23 @@ Open the Claude Code panel and run:
 
 ### Claude app
 
-Install from the terminal (above), or run the same two `/plugin` commands in a **Code** tab session. Then use Notemind from the **Code** tab, not Chat or Cowork.
+> ⚠️ **Install it in Claude Code mode, not Cowork or Chat.**
+> Cowork and Chat run in a cloud sandbox. A plugin installed there cannot save notes on your computer, so your notes would be lost. Always switch to the **Code** tab first.
 
-Start a new session after installing and run `/notemind:note-help`.
+**Option 1: commands.** In a **Code** tab session, run:
+
+```text
+/plugin marketplace add aliyanfaisal/notemind
+/plugin install notemind@notemind
+```
+
+**Option 2: zip file (manual).**
+
+1. Download `notemind-<version>.zip` from the [Releases page](https://github.com/aliyanfaisal/notemind/releases/latest).
+2. Switch to the **Code** tab.
+3. Open **Plugins**, choose **Add**, and select the zip file.
+
+Then start a new **Code** session in a local folder and run `/note-help`.
 
 ## Good to know
 

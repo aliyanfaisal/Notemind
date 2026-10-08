@@ -10,20 +10,10 @@ from datetime import datetime
 from typing import List, Optional, TextIO
 
 from . import __version__
-from .brief import build_brief, format_today
+from .brief import build_brief, format_done, format_list, format_saved, format_today
 from .hooks import log_error, session_start
 from .parse import parse_due
 from .store import ALERT_LEVELS, NOTE_TYPES, NoteError, NoteStore, default_home
-
-
-def _line(note: dict) -> str:
-    mark = "x" if note["status"] == "done" else " "
-    bits = [f"[{mark}] #{note['id']}", note["text"]]
-    if note["due_at"]:
-        bits.append(f"(due {note['due_at']})")
-    if note["project"]:
-        bits.append(f"[{note['project']}]")
-    return " ".join(bits)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -104,26 +94,22 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                 if args.json:
                     print(json.dumps({**note, "assumptions": assumptions}), file=out)
                 else:
-                    print(f"Added {_line(note)}", file=out)
-                    for item in assumptions:
-                        print(f"  ! {item}", file=out)
+                    print(format_saved(note, assumptions), file=out)
             elif args.command == "list":
                 notes = store.list(
                     status=None if args.all else "open", type=args.type, project=args.project
                 )
                 if args.json:
                     print(json.dumps(notes), file=out)
-                elif notes:
-                    print("\n".join(_line(n) for n in notes), file=out)
                 else:
-                    print("No notes.", file=out)
+                    print(format_list(notes, now), file=out)
             elif args.command == "today":
                 brief = build_brief(store.list(), now)
                 print(json.dumps(brief.as_dict()) if args.json else format_today(brief, now),
                       file=out)
             elif args.command == "done":
                 note = store.done(args.id)
-                print(json.dumps(note) if args.json else f"Done {_line(note)}", file=out)
+                print(json.dumps(note) if args.json else format_done(note), file=out)
     except NoteError as err:
         print(f"notescos: {err}", file=sys.stderr)
         return 1

@@ -13,4 +13,4 @@ Run `"${CLAUDE_PLUGIN_ROOT}/scripts/notescos" list` and add only these options w
 - `--project NAME` to show one project
 - `--type TYPE`, where TYPE is one of task, followup, waiting_on, decision, idea, reference
 
-Quote any value that contains spaces and ignore anything else in the filters. Show the output as is. If it says "No notes.", say so and suggest `/note`.
+Quote any value that contains spaces and ignore anything else in the filters. The tool prints Markdown. Reply with it exactly as it is, with nothing added.

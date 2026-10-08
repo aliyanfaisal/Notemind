@@ -25,5 +25,5 @@ Current date and time on the user's machine (use it to resolve relative dates):
 NOTESCOS_EOF
 ```
 
-4. Reply with the tool's output. If you found a date, add one short line saying how you read it, for example: Read "in the next 2 hours" as Fri 9 Oct, 16:00. If you had to guess, say so and tell the user to run the command again with the date written out, because editing notes is not available yet. If the output has a line starting with `!` or `⚠`, include it. Say nothing else.
+4. The tool prints a short Markdown confirmation. Reply with it exactly as it is. Only if you had to guess the date (an unclear phrase or an ambiguous date such as 04/12), add one italic line saying what you assumed and that the command can be run again with the date written out, because editing notes is not available yet. If the output has a line starting with `⚠`, keep it. Say nothing else.
 5. Do not save the note anywhere else and do not create tasks or files.
