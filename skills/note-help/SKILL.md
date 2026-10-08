@@ -24,5 +24,4 @@ Show the user this guide as is, formatted cleanly.
 - When a date had to be guessed (a year, or 04/12 meaning 4 Dec or 12 Apr), the reply says so. Set `NOTESCOS_DATE_ORDER=mdy` for month-first dates.
 - A banner with your overdue and upcoming notes appears each time Claude Code starts.
 - Notes live in `~/.notescos/notes.db`. Nothing is sent anywhere.
-
-**Coming soon:** priority ranking (`/notemind:note-top`), asking questions over your notes (`/notemind:note-ask`), snooze and edit.
+ 

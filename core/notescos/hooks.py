@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import traceback
 from datetime import datetime
 from pathlib import Path
@@ -15,6 +16,9 @@ WELCOME = """📌 Notemind is ready.
   /notemind:note-add <text>   save a note (dates in your sentence are understood)
   /notemind:note-today        what needs your attention
   /notemind:note-help         all commands"""
+
+# Clients that run hooks but do not display a hook's systemMessage to the user.
+HIDES_HOOK_MESSAGES = {"claude-desktop"}
 
 BANNER_HORIZON_DAYS = 2  # session banner covers overdue, today and the next 2 days
 
@@ -46,14 +50,22 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
         welcomed.write_text(now.isoformat(timespec="seconds"))
 
     text = "\n\n".join(parts)
+    if os.environ.get("CLAUDE_CODE_ENTRYPOINT") in HIDES_HOOK_MESSAGES:
+        instruction = (
+            "Notemind summary of the user's open notes. This app does not show hook "
+            "messages, so the user has NOT seen it. Begin your first reply with the "
+            "summary below exactly as written, then answer their request.\n"
+        )
+    else:
+        instruction = (
+            "Notemind summary of the user's open notes. Mention it only "
+            "if relevant; the user has already seen it.\n"
+        )
     return {
-        "systemMessage": text,  # shown to the user
+        "systemMessage": text,  # shown to the user by clients that display it
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",
-            "additionalContext": (
-                "Notemind summary of the user's open notes. Mention it only "
-                "if relevant; the user has already seen it.\n" + text
-            ),
+            "additionalContext": instruction + text,
         },
     }
 
