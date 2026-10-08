@@ -62,3 +62,8 @@ CLAUDE.local.md
 
 # Private planning docs (not published)
 PLAN.md
+
+# Tests (kept locally, not committed)
+core/tests/
+test_*.py
+*_test.py

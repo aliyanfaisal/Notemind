@@ -1,5 +1,5 @@
 ---
-name: notes-list
+name: note-list
 description: List the user's notes, optionally including finished ones or filtering by project or type.
 argument-hint: "[--all] [--project NAME] [--type TYPE]"
 allowed-tools: Bash(*/scripts/notescos *)

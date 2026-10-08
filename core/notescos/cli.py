@@ -28,7 +28,7 @@ def _line(note: dict) -> str:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="notescos", description="Notes Chief of Staff: never forget a follow-up."
+        prog="notescos", description="Notemind: never forget a follow-up."
     )
     parser.add_argument("--version", action="version", version=f"notescos {__version__}")
     parser.add_argument("--json", action="store_true", help="print JSON instead of text")
@@ -39,7 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
                      help="the note text; use - to read it from stdin (safe for quotes and symbols)")
     add.add_argument("--type", choices=[t for t in NOTE_TYPES if not t.startswith("money_")],
                      default="task")
-    add.add_argument("--due", help="optional override: a date like 2026-10-09 or 'next friday'")
+    add.add_argument("--due", help="exact due date: YYYY-MM-DD or YYYY-MM-DDTHH:MM, or 'none' for no date. "
+                          "Without it, the date is read from the note text.")
     add.add_argument("--priority", type=int, choices=[0, 1, 2, 3], default=0)
     add.add_argument("--alert", choices=ALERT_LEVELS, default="normal", dest="alert_level")
     add.add_argument("--person")
@@ -61,6 +62,17 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+SANDBOX_WARNING = (
+    "⚠ This ran in a cloud sandbox, so your notes were NOT saved on your computer. "
+    "Use Notemind from Claude Code on your machine (terminal, VS Code or the app's Code tab)."
+)
+
+
+def in_sandbox() -> bool:
+    """True when running from the app's cloud skill sandbox (/mnt/skills/...)."""
+    return os.path.abspath(__file__).startswith("/mnt/skills/")
+
+
 def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
          now: Optional[datetime] = None) -> int:
     out = out or sys.stdout
@@ -78,8 +90,11 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                 order = os.environ.get("NOTESCOS_DATE_ORDER", "dmy").lower()
                 if order not in ("dmy", "mdy"):
                     raise NoteError("NOTESCOS_DATE_ORDER must be 'dmy' or 'mdy'.")
-                found = parse_due(args.due or text, now, order)
-                due = found.due if found else args.due
+                if args.due and args.due.lower() == "none":
+                    found, due = None, None  # the caller decided this note has no date
+                else:
+                    found = parse_due(args.due or text, now, order)
+                    due = found.due if found else args.due
                 note = store.add(
                     text, type=args.type, due=due,
                     priority=args.priority, alert_level=args.alert_level,
@@ -112,6 +127,8 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
     except NoteError as err:
         print(f"notescos: {err}", file=sys.stderr)
         return 1
+    if not getattr(args, "json", False) and in_sandbox():
+        print(SANDBOX_WARNING, file=out)
     return 0
 
 

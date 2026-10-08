@@ -1,10 +1,10 @@
 {
-  "name": "notes-chief-of-staff",
-  "description": "Notes Chief of Staff, local-only notes and follow-ups for Claude Code.",
+  "name": "notemind",
+  "description": "Notemind, local-only notes and follow-ups for Claude Code.",
   "owner": { "name": "Aliyan Faisal" },
   "plugins": [
     {
-      "name": "cos",
+      "name": "notemind",
       "source": "./",
       "description": "Save notes in plain sentences and get told what is overdue or due soon. Local only."
     }

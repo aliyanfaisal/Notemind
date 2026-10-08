@@ -1,6 +1,6 @@
 # What the hook does
 
-Notes Chief of Staff registers exactly **one** Claude Code hook. This page says what it runs, what it reads, and what it can and cannot do, so you can decide whether to trust it.
+Notemind registers exactly **one** Claude Code hook. This page says what it runs, what it reads, and what it can and cannot do, so you can decide whether to trust it.
 
 ## What gets installed
 
@@ -8,7 +8,7 @@ Installing the plugin adds these, all inside the plugin folder Claude Code manag
 
 | What | Where |
 |---|---|
-| The `/cos:notes-add`, `/cos:notes-today`, `/cos:notes-list`, `/cos:notes-done`, `/cos:notes-help` commands | `skills/` |
+| The `/notemind:note-add`, `/notemind:note-today`, `/notemind:note-list`, `/notemind:note-done`, `/notemind:note-help` commands | `skills/` |
 | One `SessionStart` hook | `hooks/hooks.json` |
 | A small launcher that runs the bundled Python code | `scripts/notescos` |
 
@@ -42,10 +42,10 @@ Any error (for example a damaged database) is caught. The hook exits with code 0
 
 ## The commands (skills)
 
-- `/cos:notes-add` and `/cos:notes-done` can only be run by you (`disable-model-invocation: true`), so Claude never saves or closes a note on its own.
-- `/cos:notes-today`, `/cos:notes-list` and `/cos:notes-help` can also be used by Claude when you ask things like "what's due?".
+- `/notemind:note-add` and `/notemind:note-done` can only be run by you (`disable-model-invocation: true`), so Claude never saves or closes a note on its own.
+- `/notemind:note-today`, `/notemind:note-list` and `/notemind:note-help` can also be used by Claude when you ask things like "what's due?".
 - Every skill is limited to running this tool (`allowed-tools: Bash(notescos *)`).
-- `/cos:notes-add` passes your text to the tool on stdin through a quoted here-document, so quotes, `$(...)` and backticks in a note are never executed.
+- `/notemind:note-add` passes your text to the tool on stdin through a quoted here-document, so quotes, `$(...)` and backticks in a note are never executed.
 
 ## Checking it yourself
 

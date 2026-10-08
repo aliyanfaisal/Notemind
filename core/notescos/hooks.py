@@ -11,10 +11,10 @@ from typing import Dict, Optional
 from .brief import build_brief, format_banner
 from .store import NoteStore, default_home
 
-WELCOME = """📌 Notes Chief of Staff is ready.
-  /cos:notes-add <text>   save a note (dates in your sentence are understood)
-  /cos:notes-today        what needs your attention
-  /cos:notes-help         all commands"""
+WELCOME = """📌 Notemind is ready.
+  /notemind:note-add <text>   save a note (dates in your sentence are understood)
+  /notemind:note-today        what needs your attention
+  /notemind:note-help         all commands"""
 
 BANNER_HORIZON_DAYS = 2  # session banner covers overdue, today and the next 2 days
 
@@ -51,7 +51,7 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",
             "additionalContext": (
-                "Notes Chief of Staff summary of the user's open notes. Mention it only "
+                "Notemind summary of the user's open notes. Mention it only "
                 "if relevant; the user has already seen it.\n" + text
             ),
         },

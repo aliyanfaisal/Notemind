@@ -1,4 +1,4 @@
-"""Turn a list of notes into the briefing shown at session start and by /cos:notes-today."""
+"""Turn a list of notes into the briefing shown at session start and by /notemind:note-today."""
 
 from __future__ import annotations
 
@@ -103,14 +103,14 @@ def format_banner(brief: Brief, now: datetime, max_items: int = 4) -> str:
         lines.append(f"  {mark} {_item(note, now)}")
     if len(entries) > max_items:
         lines.append(f"  …and {len(entries) - max_items} more")
-    lines.append("  /cos:notes-today for details")
+    lines.append("  /notemind:note-today for details")
     return "\n".join(lines)
 
 
 def format_today(brief: Brief, now: datetime, max_undated: int = 5) -> str:
-    """The fuller view behind /cos:notes-today."""
+    """The fuller view behind /notemind:note-today."""
     if not (brief.attention or brief.undated):
-        return "No open notes yet. Add one with: /cos:notes-add <your note here>"
+        return "No open notes yet. Add one with: /notemind:note-add <your note here>"
     sections = []
     for title, group in (
         ("Overdue", brief.overdue), ("Due today", brief.due_today),
@@ -124,7 +124,7 @@ def format_today(brief: Brief, now: datetime, max_undated: int = 5) -> str:
         body = "\n".join(f"  #{n['id']} {n['text']}" for n in shown)
         extra = len(brief.undated) - len(shown)
         if extra > 0:
-            body += f"\n  …and {extra} more (see /cos:notes-list)"
+            body += f"\n  …and {extra} more (see /notemind:note-list)"
         sections.append(f"No date ({len(brief.undated)})\n{body}")
     if not brief.attention:
         sections.insert(0, "Nothing is due in the next 7 days.")
