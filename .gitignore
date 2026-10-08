@@ -1,0 +1,64 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Editors / IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.python-version
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.nox/
+
+# Secrets and local config
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# User data (never commit real notes)
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
+.notescos/
+notescos-data/
+
+# Logs and temp
+*.log
+logs/
+tmp/
+.tmp/
+.scratch/
+
+# Claude Code local-only files
+.claude/settings.local.json
+.claude/scratch/
+CLAUDE.local.md
+
+# Private planning docs (not published)
+PLAN.md
