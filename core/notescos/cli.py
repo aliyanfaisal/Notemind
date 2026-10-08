@@ -5,9 +5,11 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+from datetime import datetime
 from typing import List, Optional, TextIO
 
 from . import __version__
+from .parse import parse_due
 from .store import ALERT_LEVELS, NOTE_TYPES, NoteError, NoteStore
 
 
@@ -33,7 +35,7 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("text", nargs="+", help="the note text")
     add.add_argument("--type", choices=[t for t in NOTE_TYPES if not t.startswith("money_")],
                      default="task")
-    add.add_argument("--due", help="YYYY-MM-DD or YYYY-MM-DDTHH:MM")
+    add.add_argument("--due", help="optional override: a date like 2026-10-09 or 'next friday'")
     add.add_argument("--priority", type=int, choices=[0, 1, 2, 3], default=0)
     add.add_argument("--alert", choices=ALERT_LEVELS, default="normal", dest="alert_level")
     add.add_argument("--person")
@@ -50,18 +52,30 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None) -> int:
+def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
+         now: Optional[datetime] = None) -> int:
     out = out or sys.stdout
+    now = now or datetime.now()
     args = build_parser().parse_args(argv)
     try:
         with NoteStore() as store:
             if args.command == "add":
+                text = " ".join(args.text)
+                # An explicit --due wins; otherwise read the date from the sentence.
+                found = parse_due(args.due or text, now)
+                due = found.due if found else args.due
                 note = store.add(
-                    " ".join(args.text), type=args.type, due=args.due,
+                    text, type=args.type, due=due,
                     priority=args.priority, alert_level=args.alert_level,
                     person=args.person, project=args.project, tags=args.tags,
                 )
-                print(json.dumps(note) if args.json else f"Added {_line(note)}", file=out)
+                assumptions = found.assumptions if found else []
+                if args.json:
+                    print(json.dumps({**note, "assumptions": assumptions}), file=out)
+                else:
+                    print(f"Added {_line(note)}", file=out)
+                    for item in assumptions:
+                        print(f"  ! {item}", file=out)
             elif args.command == "list":
                 notes = store.list(
                     status=None if args.all else "open", type=args.type, project=args.project
