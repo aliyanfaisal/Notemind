@@ -1,49 +1,112 @@
-# Notes Chief of Staff
+<div align="center">
 
-**Never forget a follow-up again.**
+# 📌 Notes Chief of Staff
 
-Notes Chief of Staff (`notescos`) is a free, open-source assistant for [Claude Code](https://claude.com/claude-code) that turns your notes into a personal chief of staff. Capture notes from any session, see your top priorities the moment you open Claude Code, and ask questions over everything you've written. Everything stays on your machine.
+### Your notes, finally working for you.
 
-> **Status:** early development. The core store and `notescos add/list/done` CLI exist; Claude Code skills and hooks are next.
+**A Claude Code plugin that remembers your follow-ups, reads the dates in your sentences, and tells you what needs attention the moment you open Claude.**
 
-## Why
+[![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-D97757?style=for-the-badge)](#install)
+[![Local first](https://img.shields.io/badge/100%25-local-2ea44f?style=for-the-badge)](#privacy)
+[![No dependencies](https://img.shields.io/badge/dependencies-none-blue?style=for-the-badge)](#install)
+[![MIT](https://img.shields.io/badge/license-MIT-lightgrey?style=for-the-badge)](LICENSE)
 
-Notes pile up and nobody looks at them again. Promises, deadlines and "waiting on Sara" get buried. Notes Chief of Staff pushes the right note in front of you at the right time, without leaving the terminal where you already work.
+Works in the **Claude Code desktop app**, the **VS Code extension** and the **terminal**.
 
-## Planned features
+</div>
 
-- **Fast capture:** `/note call Sara Friday 3pm about the quote`, or start any prompt with `#note`.
-- **Session briefing:** a short banner when Claude Code starts, such as "2 overdue · 3 due today · waiting on Sara (4d)".
-- **Priority ranking:** `/notes-top` orders your notes with a transparent score and tells you why.
-- **Follow-up tracking:** notice promises you made and replies you're waiting for.
-- **Ask your notes:** `/notes-ask what did I decide about the database?` answers with cited notes.
-- **Clarifying questions:** ambiguous notes are confirmed with you before they trigger alerts.
-- **Money tracking (v0.3):** who owes you, and what you owe.
-- **Local-first and private:** one SQLite file, no network calls, no API keys.
+---
 
-## Commands (planned)
+## The problem
 
-| Command | What it does |
+Notes pile up and nobody opens them again. *"Call Sara Friday."* *"Waiting on the invoice."* *"Renew the domain."* They sit in a file until the deadline is already behind you.
+
+## The fix
+
+Type a note the way you'd say it. Notes Chief of Staff understands the date, stores it, and brings it back **right when it matters**.
+
+```text
+> /cos:notes-add call Sara tomorrow at 3pm about the quote
+✓ Added #1 call Sara tomorrow at 3pm about the quote (due 2026-10-10 15:00)
+```
+
+Next time you open Claude Code:
+
+```text
+📌 Notes: 1 overdue · 1 due today
+  ! #4 send the invoice (overdue)
+  • #1 call Sara about the quote (today 15:00)
+  /cos:notes-today for details
+```
+
+No app to open. No inbox to check. It shows up where you already work.
+
+## What you get
+
+| | |
 |---|---|
-| `/note <text>` | Add a note |
-| `/notes-today` | Due today, overdue, waiting on others |
-| `/notes-top [N]` | Top N notes by priority |
-| `/notes-check` | Full manual check of everything that needs attention |
-| `/notes-ask <question>` | Answer a question from your notes |
-| `/notes-list` | Browse and filter notes |
-| `/notes-done <id>` · `/notes-snooze <id> <when>` · `/notes-edit <id>` | Manage a note |
-| `/notes-sync` | Find commitments in past sessions (opt-in) |
-| `/notes-settings` | Alert level and scan permissions |
-| `/notes-forget` | Delete notes |
-| `/notes-help` · `/notes-tour` | Built-in guide |
+| ⚡ **Capture in a sentence** | `/cos:notes-add renew the domain next friday`. No forms, no date pickers. |
+| 🗓️ **Dates understood** | "tomorrow at 3pm", "22 sep", "next friday". If it had to guess, it tells you. |
+| 🔔 **Startup briefing** | Overdue, due today and next two days, shown when a session starts. Silent when there's nothing to say. |
+| 🔒 **Private by design** | Everything lives in one file on your machine. No account, no cloud, no network calls. |
+| 🪶 **Zero dependencies** | Pure Python standard library. Nothing to install but the plugin. |
 
 ## Install
 
-Manual install only for now. An `install.sh` will ship with v0.1.
+You need Claude Code and Python 3.9+. Then run this inside Claude Code:
+
+```text
+/plugin marketplace add <you>/notes-chief-of-staff
+/plugin install cos@notes-chief-of-staff
+```
+
+Start a new session and try `/cos:notes-help`.
+
+<details>
+<summary>Prefer the terminal, or want to try it from a local clone first?</summary>
+
+```bash
+claude plugin marketplace add <you>/notes-chief-of-staff
+claude plugin install cos@notes-chief-of-staff
+
+# or test a clone without installing anything
+git clone https://github.com/<you>/notes-chief-of-staff.git
+claude --plugin-dir ./notes-chief-of-staff
+```
+
+To remove it: `/plugin uninstall cos@notes-chief-of-staff`. Your notes stay in `~/.notescos/` until you delete that folder.
+
+</details>
+
+## Commands
+
+| Command | What it does | Status |
+|---|---|---|
+| `/cos:notes-add <text>` | Save a note, with the date read from your sentence | ✅ |
+| `/cos:notes-today` | Overdue, due today and coming up | ✅ |
+| `/cos:notes-list` | Browse notes, filter by `--project`, `--type`, `--all` | ✅ |
+| `/cos:notes-done <id>` | Mark a note finished | ✅ |
+| `/cos:notes-help` | Built-in guide | ✅ |
+| `/cos:notes-top` | Rank notes by priority, with the reason | 🔜 |
+| `/cos:notes-ask <question>` | Ask questions over your notes, with citations | 🔜 |
+| `/cos:notes-snooze` · `/cos:notes-edit` | Move or change a note | 🔜 |
+| Money tracking | Who owes you, and what you owe | 🔜 |
+
+## Privacy
+
+- Notes are stored in a single SQLite file: `~/.notescos/notes.db`.
+- The plugin makes **no network calls** and needs **no API keys**.
+- It registers exactly **one** hook, and [docs/hooks.md](docs/hooks.md) lists what it reads and what it can't do.
+- `/cos:notes-add` and `/cos:notes-done` can only be run by you. Claude never saves or closes a note on its own.
+
+## Good to know
+
+- Alerts appear when Claude Code is open. There's no background process in this version.
+- Dates like `04/12` are read day-first. Set `NOTESCOS_DATE_ORDER=mdy` for month-first.
 
 ## Contributing
 
-Ideas and feedback are welcome once the first release lands.
+Ideas and feedback are welcome. Run the tests with `cd core && python3 -m unittest discover -s tests -t .`
 
 ## License
 

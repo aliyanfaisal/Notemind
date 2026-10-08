@@ -1,0 +1,9 @@
+{
+  "name": "cos",
+  "displayName": "Notes Chief of Staff",
+  "version": "0.3.0",
+  "description": "Save notes in plain sentences and get told what is overdue or due soon. Everything stays on your machine.",
+  "author": { "name": "Aliyan Faisal" },
+  "license": "MIT",
+  "keywords": ["notes", "reminders", "follow-ups", "tasks"]
+}

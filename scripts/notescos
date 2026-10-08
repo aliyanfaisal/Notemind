@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+# Launcher for Notes Chief of Staff. Runs the bundled Python core.
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+export PYTHONPATH="$ROOT/core${PYTHONPATH:+:$PYTHONPATH}"
+for py in python3 /usr/bin/python3 /opt/homebrew/bin/python3 /usr/local/bin/python3; do
+  if command -v "$py" >/dev/null 2>&1; then exec "$py" -m notescos "$@"; fi
+done
+echo "Notes Chief of Staff needs Python 3.9 or newer (python3 was not found)." >&2
+exit 1

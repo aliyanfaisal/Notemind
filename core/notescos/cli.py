@@ -10,8 +10,10 @@ from datetime import datetime
 from typing import List, Optional, TextIO
 
 from . import __version__
+from .brief import build_brief, format_today
+from .hooks import log_error, session_start
 from .parse import parse_due
-from .store import ALERT_LEVELS, NOTE_TYPES, NoteError, NoteStore
+from .store import ALERT_LEVELS, NOTE_TYPES, NoteError, NoteStore, default_home
 
 
 def _line(note: dict) -> str:
@@ -33,7 +35,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = parser.add_subparsers(dest="command", required=True)
 
     add = sub.add_parser("add", help="add a note")
-    add.add_argument("text", nargs="+", help="the note text")
+    add.add_argument("text", nargs="+",
+                     help="the note text; use - to read it from stdin (safe for quotes and symbols)")
     add.add_argument("--type", choices=[t for t in NOTE_TYPES if not t.startswith("money_")],
                      default="task")
     add.add_argument("--due", help="optional override: a date like 2026-10-09 or 'next friday'")
@@ -48,6 +51,11 @@ def build_parser() -> argparse.ArgumentParser:
     ls.add_argument("--type", choices=NOTE_TYPES)
     ls.add_argument("--project")
 
+    sub.add_parser("today", help="what is overdue, due today and coming up")
+
+    hook = sub.add_parser("hook", help="entry points used by Claude Code hooks")
+    hook.add_argument("event", choices=["session-start"])
+
     done = sub.add_parser("done", help="mark a note done")
     done.add_argument("id", type=int)
     return parser
@@ -58,10 +66,14 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
     out = out or sys.stdout
     now = now or datetime.now()
     args = build_parser().parse_args(argv)
+    if args.command == "hook":
+        return _run_hook(out, now)
     try:
         with NoteStore() as store:
             if args.command == "add":
                 text = " ".join(args.text)
+                if args.text == ["-"]:
+                    text = " ".join(sys.stdin.read().split())
                 # An explicit --due wins; otherwise read the date from the sentence.
                 order = os.environ.get("NOTESCOS_DATE_ORDER", "dmy").lower()
                 if order not in ("dmy", "mdy"):
@@ -90,12 +102,28 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                     print("\n".join(_line(n) for n in notes), file=out)
                 else:
                     print("No notes.", file=out)
+            elif args.command == "today":
+                brief = build_brief(store.list(), now)
+                print(json.dumps(brief.as_dict()) if args.json else format_today(brief, now),
+                      file=out)
             elif args.command == "done":
                 note = store.done(args.id)
                 print(json.dumps(note) if args.json else f"Done {_line(note)}", file=out)
     except NoteError as err:
         print(f"notescos: {err}", file=sys.stderr)
         return 1
+    return 0
+
+
+def _run_hook(out: TextIO, now: datetime) -> int:
+    """Hooks never fail loudly: on any error, log it and let the session carry on."""
+    try:
+        stdin_text = "" if sys.stdin.isatty() else sys.stdin.read()
+        result = session_start(stdin_text, now)
+        if result:
+            print(json.dumps(result), file=out)
+    except Exception:  # noqa: BLE001 - a hook must not break the user's session
+        log_error(default_home())
     return 0
 
 
