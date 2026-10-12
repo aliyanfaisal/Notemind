@@ -12,8 +12,9 @@ Type a note in plain words, like `call Sara tomorrow at 3pm`. Notemind works out
 - Understands dates and times written in plain words
 - Shows overdue and upcoming notes when a session starts
 - Lists what needs attention today
+- Shows your notes on a visual board, filtered by day or range
 - Marks notes as done
-- Keeps everything in one file on your computer (`~/.notescos/notes.db`), with no account and no network calls
+- Keeps everything in one file on your computer (`~/.notescos/notes.db`), with no account and no network calls (the optional Claude artifact board asks before it sends anything)
 
 ## Commands
 
@@ -22,6 +23,7 @@ Type a note in plain words, like `call Sara tomorrow at 3pm`. Notemind works out
 | Save a note | `/notemind:note-add <text>` | `/note-add <text>` |
 | See what needs attention | `/notemind:note-today` | `/note-today` |
 | Browse notes | `/notemind:note-list` | `/note-list` |
+| See notes on a board | `/notemind:note-board [overdue\|due\|next 2 days\|22 sep]` | `/note-board` |
 | Mark a note done | `/notemind:note-done <number>` | `/note-done <number>` |
 | Help | `/notemind:note-help` | `/note-help` |
 
@@ -30,6 +32,17 @@ Type a note in plain words, like `call Sara tomorrow at 3pm`. Notemind works out
 /notemind:note-add dentist in the next 2 hours
 /notemind:note-done 3
 ```
+
+## The notes board
+
+`/notemind:note-board` shows your notes grouped by day, with overdue first. Give it a range in plain words: `overdue`, `due` (today), `next 2 days`, `friday`, `22 sep`, `this month`. With no range it shows all open notes.
+
+It asks where to build the board:
+
+- **Private Claude artifact.** The page is hosted on claude.ai, so your notes are **sent to claude.ai**. Make sure they hold nothing sensitive. The artifact is always private to you.
+- **Local file.** Nothing leaves your computer. The board is written to `~/.notescos/board.html`.
+
+This is the only part of Notemind that can send notes anywhere, and only if you say yes. The board is a snapshot: make it again to see later changes.
 
 ## Notes without a date
 
@@ -69,7 +82,7 @@ Open the Claude Code panel and run:
 
 **Option 2: zip file (manual).**
 
-1. Download `notemind-<version>.zip` from the [Releases page](https://github.com/aliyanfaisal/notemind/releases/latest).
+1. Download `notemind-v<version>.zip` from the [Releases page](https://github.com/aliyanfaisal/notemind/releases/latest).
 2. Switch to the **Code** tab.
 3. Open **Plugins**, choose **Add**, and select the zip file.
 

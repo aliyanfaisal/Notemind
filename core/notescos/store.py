@@ -180,9 +180,19 @@ class NoteStore:
         status: Optional[str] = "open",
         type: Optional[str] = None,
         project: Optional[str] = None,
+        due_from: Optional[str] = None,
+        due_to: Optional[str] = None,
     ) -> List[Dict]:
-        """Notes ordered by due date (undated last), then oldest first."""
+        """Notes ordered by due date (undated last), then oldest first.
+
+        due_from / due_to are inclusive YYYY-MM-DD days; notes without a due date
+        never match when either is given.
+        """
         clauses, params = [], []
+        for bound, op in ((due_from, ">="), (due_to, "<=")):
+            if bound is not None:
+                clauses.append(f"substr(due_at, 1, 10) {op} ?")
+                params.append(normalize_due(bound)[:10])
         for column, value in (("status", status), ("type", type), ("project", project)):
             if value is not None:
                 clauses.append(f"{column} = ?")

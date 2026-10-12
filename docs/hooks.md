@@ -8,7 +8,7 @@ Installing the plugin adds these, all inside the plugin folder Claude Code manag
 
 | What | Where |
 |---|---|
-| The `/notemind:note-add`, `/notemind:note-today`, `/notemind:note-list`, `/notemind:note-done`, `/notemind:note-help` commands | `skills/` |
+| The `/notemind:note-add`, `/notemind:note-today`, `/notemind:note-list`, `/notemind:note-done`, `/notemind:note-board`, `/notemind:note-help` commands | `skills/` |
 | One `SessionStart` hook | `hooks/hooks.json` |
 | A small launcher that runs the bundled Python code | `scripts/notescos` |
 
@@ -42,8 +42,9 @@ Any error (for example a damaged database) is caught. The hook exits with code 0
 
 ## The commands (skills)
 
-- `/notemind:note-add` and `/notemind:note-done` can only be run by you (`disable-model-invocation: true`), so Claude never saves or closes a note on its own.
+- `/notemind:note-add`, `/notemind:note-done` and `/notemind:note-board` can only be run by you (`disable-model-invocation: true`), so Claude never saves or closes a note on its own.
 - `/notemind:note-today`, `/notemind:note-list` and `/notemind:note-help` can also be used by Claude when you ask things like "what's due?".
+- `/notemind:note-board` is the one command that can send notes off your machine. Before publishing a Claude artifact it asks you to confirm, tells you the notes go to claude.ai, and publishes the artifact as private. The Python tool itself never makes a network call: it only writes an HTML file, and Claude's Artifact tool does the upload only after you choose it. Choosing the local file writes `~/.notescos/board.html` and nothing else.
 - Every skill is limited to running this tool (`allowed-tools: Bash(notescos *)`).
 - `/notemind:note-add` passes your text to the tool on stdin through a quoted here-document, so quotes, `$(...)` and backticks in a note are never executed.
 

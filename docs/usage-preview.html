@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Notemind Usage Preview</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: { extend: { fontFamily: {
+      mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'monospace'] } } }
+  }
+</script>
+<style>
+  body { font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  .cursor::after { content: '▍'; animation: blink 1s steps(2) infinite; opacity: .7 }
+  @keyframes blink { 50% { opacity: 0 } }
+  .fade-up { animation: up .5s ease both }
+  @keyframes up { from { opacity: 0; transform: translateY(8px) } to { opacity: 1; transform: none } }
+  @media (prefers-reduced-motion: reduce) { .cursor::after, .fade-up { animation: none } }
+</style>
+</head>
+<body class="bg-stone-100 text-stone-900 dark:bg-stone-950 dark:text-stone-100 antialiased">
+
+<header class="max-w-5xl mx-auto px-4 pt-12 pb-6">
+  <div class="flex items-center gap-3">
+    <img src="../assets/notemind-icon.png" alt="" class="w-10 h-10 rounded-xl" onerror="this.style.display='none'">
+    <h1 class="text-2xl font-semibold tracking-tight">Notemind</h1>
+    <span class="text-xs px-2 py-0.5 rounded-full bg-stone-200 dark:bg-stone-800 text-stone-600 dark:text-stone-400">v0.7.1</span>
+  </div>
+  <p class="mt-3 text-stone-600 dark:text-stone-400 max-w-xl">
+    Type a note in plain words. Notemind works out the date, saves it on your computer,
+    and tells you what is due each time a session starts.
+  </p>
+  <nav class="mt-5 flex flex-wrap gap-2 text-sm">
+    <a href="#add" class="px-3 py-1.5 rounded-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-orange-400">1 · Add</a>
+    <a href="#alert" class="px-3 py-1.5 rounded-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-orange-400">2 · Startup alert</a>
+    <a href="#today" class="px-3 py-1.5 rounded-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-orange-400">3 · Today</a>
+    <a href="#list" class="px-3 py-1.5 rounded-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-orange-400">4 · List</a>
+    <a href="#done" class="px-3 py-1.5 rounded-full bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 hover:border-orange-400">5 · Done</a>
+  </nav>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 pb-20 space-y-14">
+
+<!-- ============ 1. ADD ============ -->
+<section id="add" class="scroll-mt-6">
+  <h2 class="text-lg font-semibold">1 · Adding a note</h2>
+  <p class="text-sm text-stone-600 dark:text-stone-400 mb-4">Write the date however you like. Claude reads it and saves the exact time.</p>
+
+  <div class="rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-sm">
+    <div class="flex items-center gap-2 px-4 py-2.5 border-b border-stone-200 dark:border-stone-800 text-xs text-stone-500">
+      <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+      <span class="ml-2">Claude Code · local session</span>
+    </div>
+    <div class="p-5 space-y-5 text-[15px]">
+      <!-- user -->
+      <div class="flex justify-end">
+        <div class="max-w-[85%] rounded-2xl rounded-br-md bg-stone-100 dark:bg-stone-800 px-4 py-2.5 font-mono text-sm">
+          <span class="text-orange-600 dark:text-orange-400">/note-add</span> send the invoice tomorrow at 3pm
+        </div>
+      </div>
+      <!-- tool -->
+      <div class="rounded-lg border border-stone-200 dark:border-stone-800 px-3 py-2 text-xs font-mono text-stone-500">
+        ⏺ Bash(<span class="text-stone-700 dark:text-stone-300">notescos add --due 2026-10-11T15:00 …</span>)
+      </div>
+      <!-- reply -->
+      <div class="fade-up">
+        <div class="rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 px-4 py-3">
+          <p class="font-medium">✅ Saved note <b>#3</b></p>
+          <p class="mt-1">send the invoice</p>
+          <p class="mt-1 text-sm text-stone-600 dark:text-stone-400">📅 Sun 11 Oct, 15:00 · task</p>
+        </div>
+        <p class="mt-3 text-sm italic text-stone-500">Assumed “tomorrow” means Sun 11 Oct. Editing notes isn’t available yet, so run the command again with the date written out if that’s wrong.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3 flex flex-wrap gap-2 text-xs font-mono">
+    <span class="px-2.5 py-1 rounded-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">dentist in the next 2 hours</span>
+    <span class="px-2.5 py-1 rounded-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">end of next month</span>
+    <span class="px-2.5 py-1 rounded-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">the 3rd Friday of May</span>
+    <span class="px-2.5 py-1 rounded-md bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800">waiting on invoice from Sara <i class="not-italic text-stone-400">(no date)</i></span>
+  </div>
+</section>
+
+<!-- ============ 2. ALERT ============ -->
+<section id="alert" class="scroll-mt-6">
+  <h2 class="text-lg font-semibold">2 · The startup alert</h2>
+  <p class="text-sm text-stone-600 dark:text-stone-400 mb-4">Shown when a session starts, but only if something is overdue or due within 2 days.</p>
+
+  <div class="grid md:grid-cols-2 gap-5">
+    <!-- Terminal -->
+    <div>
+      <p class="text-xs uppercase tracking-wider text-stone-500 mb-2">Terminal / VS Code</p>
+      <div class="rounded-2xl overflow-hidden bg-stone-950 text-stone-200 border border-stone-800 shadow-sm font-mono text-[13px] leading-relaxed">
+        <div class="flex items-center gap-2 px-4 py-2.5 border-b border-stone-800 text-xs text-stone-500">
+          <span class="w-2.5 h-2.5 rounded-full bg-red-400"></span><span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span><span class="w-2.5 h-2.5 rounded-full bg-green-400"></span>
+          <span class="ml-2">~/project — claude</span>
+        </div>
+        <div class="p-4 space-y-3">
+          <p class="text-stone-500">SessionStart hook</p>
+          <div class="rounded-lg border border-orange-500/40 bg-orange-500/10 px-3 py-2.5">
+            <p>📌 Notes: <span class="text-red-400">2 overdue</span></p>
+            <p class="pl-3"><span class="text-red-400">!</span> #1 I have a meeting in next 2 hours <span class="text-stone-500">(overdue 1d)</span></p>
+            <p class="pl-3"><span class="text-red-400">!</span> #2 remind me tomorrow at 12am <span class="text-stone-500">(overdue today)</span></p>
+            <p class="pl-3 text-stone-500">/notemind:note-today for details</p>
+          </div>
+          <p class="border border-stone-700 rounded-lg px-3 py-2 text-stone-400"><span class="text-orange-400">&gt;</span> <span class="cursor"></span></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Claude app -->
+    <div>
+      <p class="text-xs uppercase tracking-wider text-stone-500 mb-2">Claude app (Code tab)</p>
+      <div class="rounded-2xl overflow-hidden bg-white dark:bg-stone-900 border border-stone-200 dark:border-stone-800 shadow-sm text-[15px]">
+        <div class="flex items-center justify-between px-4 py-2.5 border-b border-stone-200 dark:border-stone-800 text-xs text-stone-500">
+          <span>Code · my-project</span><span class="px-2 py-0.5 rounded-full bg-stone-100 dark:bg-stone-800">Local</span>
+        </div>
+        <div class="p-5 space-y-4">
+          <div class="flex justify-end">
+            <div class="rounded-2xl rounded-br-md bg-stone-100 dark:bg-stone-800 px-4 py-2.5">Let’s fix the login bug</div>
+          </div>
+          <div class="space-y-3">
+            <div class="rounded-xl border-l-4 border-orange-500 bg-orange-50 dark:bg-orange-950/30 px-4 py-3">
+              <p class="font-semibold">📌 You have 2 overdue notes</p>
+              <ul class="mt-1.5 text-sm space-y-1">
+                <li><b class="text-red-600 dark:text-red-400">#1</b> I have a meeting in next 2 hours <span class="text-stone-500">· overdue 1d</span></li>
+                <li><b class="text-red-600 dark:text-red-400">#2</b> remind me tomorrow at 12am <span class="text-stone-500">· overdue today</span></li>
+              </ul>
+              <p class="mt-2 text-xs text-stone-500">Run <span class="font-mono">/note-today</span> for details.</p>
+            </div>
+            <p>Sure, let’s take a look at the login flow. Which error are you seeing?</p>
+          </div>
+        </div>
+      </div>
+      <p class="mt-2 text-xs text-stone-500">In the app, Claude opens its first reply with the alert.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3. TODAY ============ -->
+<section id="today" class="scroll-mt-6">
+  <h2 class="text-lg font-semibold">3 · What needs attention</h2>
+  <p class="text-sm text-stone-600 dark:text-stone-400 mb-4"><span class="font-mono">/note-today</span> groups notes by urgency.</p>
+
+  <div class="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-sm p-5 space-y-6">
+    <h3 class="text-xl font-semibold">📌 Today <span class="text-stone-400 font-normal">· Sat 10 Oct</span></h3>
+
+    <div>
+      <h4 class="font-semibold text-red-600 dark:text-red-400 mb-2">🔴 Overdue (2)</h4>
+      <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]">
+        <thead><tr class="text-left text-stone-500 border-b border-stone-200 dark:border-stone-800"><th class="py-2 pr-3 w-10 text-right">#</th><th class="py-2 pr-3">Note</th><th class="py-2">Was due</th></tr></thead>
+        <tbody class="divide-y divide-stone-100 dark:divide-stone-800">
+          <tr><td class="py-2 pr-3 text-right text-stone-500">1</td><td class="py-2 pr-3">I have a meeting in next 2 hours</td><td class="py-2 text-red-600 dark:text-red-400">overdue 1d</td></tr>
+          <tr><td class="py-2 pr-3 text-right text-stone-500">2</td><td class="py-2 pr-3">remind me tomorrow at 12am</td><td class="py-2 text-red-600 dark:text-red-400">overdue today</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+
+    <div>
+      <h4 class="font-semibold text-amber-600 dark:text-amber-400 mb-2">🟡 Due today (1)</h4>
+      <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><tbody>
+        <tr><td class="py-2 pr-3 w-10 text-right text-stone-500">4</td><td class="py-2 pr-3">dentist in the next 2 hours</td><td class="py-2">12:30</td></tr>
+      </tbody></table></div>
+    </div>
+
+    <div>
+      <h4 class="font-semibold text-sky-600 dark:text-sky-400 mb-2">🔵 Coming up (1)</h4>
+      <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><tbody>
+        <tr><td class="py-2 pr-3 w-10 text-right text-stone-500">3</td><td class="py-2 pr-3">send the invoice</td><td class="py-2">Sun 11 Oct, 15:00</td></tr>
+      </tbody></table></div>
+    </div>
+
+    <div>
+      <h4 class="font-semibold text-stone-500 mb-2">⚪ No date (1)</h4>
+      <div class="overflow-x-auto"><table class="w-full text-sm min-w-[420px]"><tbody>
+        <tr><td class="py-2 pr-3 w-10 text-right text-stone-500">5</td><td class="py-2">waiting on invoice from Sara</td></tr>
+      </tbody></table></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 4. LIST ============ -->
+<section id="list" class="scroll-mt-6">
+  <h2 class="text-lg font-semibold">4 · Browsing all notes</h2>
+  <p class="text-sm text-stone-600 dark:text-stone-400 mb-4"><span class="font-mono">/note-list</span> shows every open note. Add finished ones or filter by project or type.</p>
+
+  <div class="rounded-2xl border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-sm p-5">
+    <h3 class="text-xl font-semibold mb-3">🗒️ Notes <span class="text-stone-400 font-normal">· 5 open</span></h3>
+    <div class="overflow-x-auto"><table class="w-full text-sm min-w-[520px]">
+      <thead><tr class="text-left text-stone-500 border-b border-stone-200 dark:border-stone-800">
+        <th class="py-2 pr-3 w-10 text-right">#</th><th class="py-2 pr-3">Note</th><th class="py-2 pr-3">Due</th><th class="py-2">Status</th></tr></thead>
+      <tbody class="divide-y divide-stone-100 dark:divide-stone-800">
+        <tr><td class="py-2 pr-3 text-right text-stone-500">1</td><td class="py-2 pr-3">I have a meeting in next 2 hours</td><td class="py-2 pr-3">Fri 9 Oct, 05:53</td><td class="py-2"><span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">🔴 overdue 1d</span></td></tr>
+        <tr><td class="py-2 pr-3 text-right text-stone-500">2</td><td class="py-2 pr-3">remind me tomorrow at 12am</td><td class="py-2 pr-3">Sat 10 Oct, 00:00</td><td class="py-2"><span class="px-2 py-0.5 rounded-full text-xs bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300">🔴 overdue today</span></td></tr>
+        <tr><td class="py-2 pr-3 text-right text-stone-500">4</td><td class="py-2 pr-3">dentist in the next 2 hours</td><td class="py-2 pr-3">Sat 10 Oct, 12:30</td><td class="py-2"><span class="px-2 py-0.5 rounded-full text-xs bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300">🟡 today</span></td></tr>
+        <tr><td class="py-2 pr-3 text-right text-stone-500">3</td><td class="py-2 pr-3">send the invoice</td><td class="py-2 pr-3">Sun 11 Oct, 15:00</td><td class="py-2"><span class="px-2 py-0.5 rounded-full text-xs bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300">🔵 in 1d</span></td></tr>
+        <tr><td class="py-2 pr-3 text-right text-stone-500">5</td><td class="py-2 pr-3">waiting on invoice from Sara</td><td class="py-2 pr-3 text-stone-400">—</td><td class="py-2"><span class="px-2 py-0.5 rounded-full text-xs bg-stone-100 text-stone-600 dark:bg-stone-800 dark:text-stone-400">⚪ no date</span></td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ============ 5. DONE ============ -->
+<section id="done" class="scroll-mt-6">
+  <h2 class="text-lg font-semibold">5 · Marking done</h2>
+  <div class="mt-3 rounded-2xl overflow-hidden border border-stone-200 dark:border-stone-800 bg-white dark:bg-stone-900 shadow-sm p-5 space-y-4">
+    <div class="flex justify-end">
+      <div class="rounded-2xl rounded-br-md bg-stone-100 dark:bg-stone-800 px-4 py-2.5 font-mono text-sm"><span class="text-orange-600 dark:text-orange-400">/note-done</span> 1</div>
+    </div>
+    <div class="rounded-xl border border-green-200 dark:border-green-900 bg-green-50 dark:bg-green-950/40 px-4 py-3">
+      ✅ Done: <s class="text-stone-500">#1 I have a meeting in next 2 hours</s>
+    </div>
+  </div>
+</section>
+
+<footer class="text-xs text-stone-500 pt-4">
+  Sample data. All notes stay in <span class="font-mono">~/.notescos/notes.db</span> on your computer.
+</footer>
+</main>
+</body>
+</html>

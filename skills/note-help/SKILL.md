@@ -10,7 +10,8 @@ Show the user this guide as is, formatted cleanly.
 |---|---|
 | `/notemind:note-add <text>` | Save a note. The date is read from your sentence. |
 | `/notemind:note-today` | Overdue, due today and coming up in the next 7 days |
-| `/notemind:note-list [--all] [--project X] [--type T]` | Browse your notes |
+| `/notemind:note-list [--all] [--project X] [--type T] [--from DATE] [--to DATE] [--overdue]` | Browse your notes |
+| `/notemind:note-board [overdue \| due \| next 2 days \| 22 sep]` | Show your notes as a visual board (private Claude artifact or local file) |
 | `/notemind:note-done <number>` | Mark a note finished |
 | `/notemind:note-help` | This guide |
 
@@ -23,5 +24,5 @@ Show the user this guide as is, formatted cleanly.
 **Good to know**
 - When a date had to be guessed (a year, or 04/12 meaning 4 Dec or 12 Apr), the reply says so. Set `NOTESCOS_DATE_ORDER=mdy` for month-first dates.
 - A banner with your overdue and upcoming notes appears each time Claude Code starts.
-- Notes live in `~/.notescos/notes.db`. Nothing is sent anywhere.
+- Notes live in `~/.notescos/notes.db`. Nothing is sent anywhere, except if you choose a Claude artifact for `note-board`: it asks first.
  

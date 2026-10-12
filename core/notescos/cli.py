@@ -7,9 +7,11 @@ import json
 import os
 import sys
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional, TextIO
 
 from . import __version__
+from .board import render_board
 from .brief import build_brief, format_done, format_list, format_saved, format_today
 from .hooks import log_error, session_start
 from .parse import parse_due
@@ -41,6 +43,14 @@ def build_parser() -> argparse.ArgumentParser:
     ls.add_argument("--all", action="store_true", help="include done notes")
     ls.add_argument("--type", choices=NOTE_TYPES)
     ls.add_argument("--project")
+    _add_range_options(ls)
+
+    board = sub.add_parser("board", help="write the notes board as an HTML page")
+    _add_range_options(board)
+    board.add_argument("--label", help="name of the range shown at the top, e.g. 'Next 2 days'")
+    board.add_argument("--artifact", action="store_true",
+                       help="write a page fragment for publishing as a Claude artifact")
+    board.add_argument("--out", help="where to write the page (default: ~/.notescos/board.html)")
 
     sub.add_parser("today", help="what is overdue, due today and coming up")
 
@@ -50,6 +60,26 @@ def build_parser() -> argparse.ArgumentParser:
     done = sub.add_parser("done", help="mark a note done")
     done.add_argument("id", type=int)
     return parser
+
+
+def _add_range_options(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--from", dest="due_from", metavar="YYYY-MM-DD",
+                        help="only notes due on or after this day")
+    parser.add_argument("--to", dest="due_to", metavar="YYYY-MM-DD",
+                        help="only notes due on or before this day")
+    parser.add_argument("--overdue", action="store_true", help="only notes past their due time")
+
+
+def _ranged_notes(store: NoteStore, args, now: datetime) -> List[dict]:
+    notes = store.list(
+        status=None if getattr(args, "all", False) else "open",
+        type=getattr(args, "type", None), project=getattr(args, "project", None),
+        due_from=args.due_from, due_to=args.due_to,
+    )
+    if args.overdue:
+        overdue = {n["id"] for n in build_brief(notes, now).overdue}
+        notes = [n for n in notes if n["id"] in overdue]
+    return notes
 
 
 SANDBOX_WARNING = (
@@ -96,13 +126,24 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                 else:
                     print(format_saved(note, assumptions), file=out)
             elif args.command == "list":
-                notes = store.list(
-                    status=None if args.all else "open", type=args.type, project=args.project
-                )
+                notes = _ranged_notes(store, args, now)
                 if args.json:
                     print(json.dumps(notes), file=out)
                 else:
                     print(format_list(notes, now), file=out)
+            elif args.command == "board":
+                notes = _ranged_notes(store, args, now)
+                path = Path(args.out).expanduser() if args.out else default_home() / "board.html"
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(
+                    render_board(notes, now, args.label, standalone=not args.artifact),
+                    encoding="utf-8",
+                )
+                if args.json:
+                    print(json.dumps({"path": str(path), "count": len(notes)}), file=out)
+                else:
+                    print(f"🗂️ **Board ready** · {len(notes)} note{'s' if len(notes) != 1 else ''}\n\n"
+                          f"`{path}`", file=out)
             elif args.command == "today":
                 brief = build_brief(store.list(), now)
                 print(json.dumps(brief.as_dict()) if args.json else format_today(brief, now),
