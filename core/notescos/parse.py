@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
-from typing import List, NamedTuple, Optional
+from typing import List, NamedTuple, Optional, Tuple
 
 MONTHS = {
     "january": 1, "february": 2, "march": 3, "april": 4, "may": 5, "june": 6,
@@ -58,6 +58,8 @@ class ParsedDue:
     due: str  # "YYYY-MM-DD" or "YYYY-MM-DDTHH:MM"
     matched: str  # the words the date was read from
     assumptions: List[str] = field(default_factory=list)
+    spans: List[Tuple[int, int]] = field(default_factory=list)  # where in the text it was read
+    conflict: bool = False  # the text holds more than one different date
 
 
 class _Hit(NamedTuple):
@@ -187,19 +189,19 @@ def _date_hits(text: str, now: datetime, order: str = "dmy") -> List[_Hit]:
 
 
 def _find_time(text: str):
-    """Return (time, matched words) for the first time of day in the text."""
+    """Return (time, matched words, span) for the first time of day in the text."""
     m = TIME_12H_RE.search(text)
     if m:
         hour, minute = int(m[1]), int(m[2] or 0)
         if 1 <= hour <= 12 and minute < 60:
             hour = hour % 12 + (12 if m[3].lower() == "pm" else 0)
-            return time(hour, minute), m[0]
+            return time(hour, minute), m[0], m.span()
     m = TIME_24H_RE.search(text)
     if m:
-        return time(int(m[1]), int(m[2])), m[0]
+        return time(int(m[1]), int(m[2])), m[0], m.span()
     m = NOON_RE.search(text)
     if m:
-        return time(12, 0), m[0]
+        return time(12, 0), m[0], m.span()
     return None
 
 
@@ -226,8 +228,11 @@ def parse_due(
             at = spoken_time[0]
             matched += f" {spoken_time[1].strip()}"
         day = hit.day
+        spans = [(hit.start, hit.end)] + ([spoken_time[2]] if spoken_time and hit.at is None else [])
+        conflict = len({h.day for h in hits}) > 1
     elif spoken_time:  # a time with no date: today, or tomorrow if it has passed
         at, matched, notes = spoken_time[0], spoken_time[1].strip(), []
+        spans, conflict = [spoken_time[2]], False
         day = now.date()
         if datetime.combine(day, at) <= now:
             day += timedelta(days=1)
@@ -236,4 +241,38 @@ def parse_due(
         return None
 
     due = day.isoformat() if at is None else datetime.combine(day, at).isoformat(timespec="minutes")
-    return ParsedDue(due=due, matched=matched, assumptions=notes)
+    return ParsedDue(due=due, matched=matched, assumptions=notes, spans=spans, conflict=conflict)
+
+
+# Words that suggest the text names a date or time. Used only to decide whether the
+# rules above may have missed something, so false alarms are cheap and misses are not.
+_CUE_WORDS = [
+    "today", "tomorrow", "tonight", "yesterday", "tmrw", "tmr", "eod", "eow", "eom", "asap",
+    "weekend", "weekday", "week", "weeks", "month", "months", "year", "years", "quarter",
+    "day", "days", "hour", "hours", "hr", "hrs", "minute", "minutes", "min", "mins",
+    "morning", "afternoon", "evening", "night", "midnight", "noon", "lunch", "breakfast",
+    "dinner", "later", "soon", "next", "last", "this", "end of", "start of", "beginning of",
+    "before", "after", "until", "till", "deadline", "due", "o'clock", "oclock",
+]
+DATE_CUE_RE = re.compile(
+    rf"\b(?:{_alt(_CUE_WORDS)}|{_MONTH}|{_alt(WEEKDAYS)}|{_alt(WEEKDAY_SHORT)})\b"
+    r"|\b\d{1,2}(?:st|nd|rd|th)\b"       # 3rd, 22nd
+    r"|\b\d{1,4}\s*[/.-]\s*\d{1,2}\b"   # 22/09, 2026-10-9, 3.4
+    r"|\bat\s+\d"                          # "at 5"
+    r"|\bq[1-4]\b",                        # q3
+    _FLAGS,
+)
+
+
+def needs_claude(text: str, parsed: Optional[ParsedDue]) -> bool:
+    """True when the rules cannot be trusted with this text and Claude should read it.
+
+    That is when more than one date was found, or when words that look like a date or
+    time are left over after removing the part the rules did read.
+    """
+    if parsed and parsed.conflict:
+        return True
+    rest = list(text)
+    for start, end in parsed.spans if parsed else []:
+        rest[start:end] = " " * (end - start)
+    return DATE_CUE_RE.search("".join(rest)) is not None

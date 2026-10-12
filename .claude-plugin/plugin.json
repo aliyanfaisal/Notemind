@@ -1,8 +1,8 @@
 {
   "name": "notemind",
   "displayName": "Notemind",
-  "version": "0.8.0",
-  "description": "Save notes in plain sentences and get told what is overdue or due soon. Everything stays on your machine.",
+  "version": "0.9.0",
+  "description": "Save notes in plain sentences and get told what is overdue or due soon. Notes are stored only on your machine.",
   "author": {
     "name": "Aliyan Faisal"
   },

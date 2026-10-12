@@ -13,7 +13,7 @@ from typing import List, Optional, TextIO
 from . import __version__
 from .board import render_board
 from .brief import build_brief, format_done, format_list, format_saved, format_today
-from .hooks import log_error, session_start
+from .hooks import log_error, prompt_submit, session_start
 from .parse import parse_due
 from .store import ALERT_LEVELS, NOTE_TYPES, NoteError, NoteStore, default_home
 
@@ -55,7 +55,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub.add_parser("today", help="what is overdue, due today and coming up")
 
     hook = sub.add_parser("hook", help="entry points used by Claude Code hooks")
-    hook.add_argument("event", choices=["session-start"])
+    hook.add_argument("event", choices=["session-start", "prompt-submit"])
 
     done = sub.add_parser("done", help="mark a note done")
     done.add_argument("id", type=int)
@@ -99,7 +99,7 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
     now = now or datetime.now()
     args = build_parser().parse_args(argv)
     if args.command == "hook":
-        return _run_hook(out, now)
+        return _run_hook(args.event, out, now)
     try:
         with NoteStore() as store:
             if args.command == "add":
@@ -159,15 +159,16 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
     return 0
 
 
-def _run_hook(out: TextIO, now: datetime) -> int:
+def _run_hook(event: str, out: TextIO, now: datetime) -> int:
     """Hooks never fail loudly: on any error, log it and let the session carry on."""
     try:
         stdin_text = "" if sys.stdin.isatty() else sys.stdin.read()
-        result = session_start(stdin_text, now)
+        handler = prompt_submit if event == "prompt-submit" else session_start
+        result = handler(stdin_text, now)
         if result:
             print(json.dumps(result), file=out)
     except Exception:  # noqa: BLE001 - a hook must not break the user's session
-        log_error(default_home())
+        log_error(default_home(), event)
     return 0
 
 

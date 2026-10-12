@@ -14,7 +14,7 @@ Type a note in plain words, like `call Sara tomorrow at 3pm`. Notemind works out
 - Lists what needs attention today
 - Shows your notes on a visual board, filtered by day or range
 - Marks notes as done
-- Keeps everything in one file on your computer (`~/.notescos/notes.db`), with no account and no network calls (the optional Claude artifact board asks before it sends anything)
+- Keeps everything in one file on your computer (`~/.notescos/notes.db`), with no account and no network calls of its own. Notes whose date Notemind reads itself never reach Claude; see [Privacy](#privacy)
 
 ## Commands
 
@@ -95,6 +95,16 @@ Then start a new **Code** session in a local folder and run `/note-help`.
 - **Editing a note** is not available yet. Add a corrected note and mark the old one done.
 
 To remove it: `/plugin uninstall notemind@notemind`. Your notes stay in `~/.notescos/` until you delete that folder.
+
+## Privacy
+
+- Your notes are stored only on your computer. Notemind has no server and makes no network calls.
+- **Typing a command:** `note-today`, `note-list` and `note-done` run on your machine, and Claude never sees them.
+- **Adding a note:** Notemind first reads the date with its own rules. If that works (for example `tomorrow at 3pm`, `22 sep`, `in 2 hours`) or the note has no date at all, it saves the note and Claude never sees it. Only when it cannot read a date phrase, such as `end of next month`, is the note passed to Claude to work out the date. That note's full text then goes to Claude, like anything else you type in a session.
+- **Startup banner:** your overdue notes are given to Claude as context so it can help you act on them.
+- **The notes board** asks before sending anything to claude.ai (see above).
+
+Details are in [What the hook does](docs/hooks.md).
 
 ## More
 

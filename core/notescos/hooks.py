@@ -2,14 +2,19 @@
 
 from __future__ import annotations
 
+import io
 import json
 import os
+import re
+import shlex
 import traceback
+from contextlib import redirect_stderr
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from .brief import build_brief, format_banner, format_banner_markdown
+from .brief import build_brief, format_banner, format_banner_markdown, format_saved
+from .parse import needs_claude, parse_due
 from .store import NoteStore, default_home
 
 WELCOME = """📌 Notemind is ready.
@@ -75,6 +80,80 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
     }
 
 
+COMMAND_RE = re.compile(
+    r"^\s*/(?:notemind:)?(note-add|note-today|note-list|note-done)(?:\s+(.*))?$",
+    re.DOTALL | re.IGNORECASE,
+)
+# Commands whose output depends only on the notes, so they never need Claude.
+LOCAL_COMMANDS = {"note-today": "today", "note-list": "list", "note-done": "done"}
+
+
+def prompt_submit(stdin_text: str, now: datetime, home: Optional[Path] = None) -> Optional[Dict]:
+    """Run note commands on this machine so Claude never receives them.
+
+    Only prompts that start with a Notemind command are looked at; every other prompt
+    returns None and carries on to Claude as usual. A handled command blocks the prompt
+    and shows its result to the user. `note-add` is handled only when the built-in rules
+    can read its date with confidence; otherwise Claude reads the note, as before.
+    """
+    try:
+        prompt = json.loads(stdin_text or "{}").get("prompt", "")
+    except (ValueError, AttributeError):
+        return None
+    match = COMMAND_RE.match(prompt) if isinstance(prompt, str) else None
+    if not match:
+        return None
+    name, rest = match.group(1).lower(), (match.group(2) or "").strip()
+    home = home or default_home()
+    if name == "note-add":
+        reason = _add_locally(" ".join(rest.split()), now, home)
+    else:
+        reason = _run_locally(LOCAL_COMMANDS[name], rest, now, home)
+    return {"decision": "block", "reason": reason} if reason else None
+
+
+def _add_locally(text: str, now: datetime, home: Path) -> Optional[str]:
+    if not text:
+        return None
+    order = os.environ.get("NOTESCOS_DATE_ORDER", "dmy").lower()
+    if order not in ("dmy", "mdy"):
+        return None
+    found = parse_due(text, now, order)
+    if needs_claude(text, found):
+        return None
+    with NoteStore(home / "notes.db") as store:
+        note = store.add(text, due=found.due if found else None)
+    return format_saved(note, found.assumptions if found else [])
+
+
+def _run_locally(command: str, rest: str, now: datetime, home: Path) -> Optional[str]:
+    """Run `notescos <command> <args>` in-process and return its text, or None to defer to Claude."""
+    from .cli import main  # imported here because cli imports this module
+
+    try:
+        argv = [command] + shlex.split(rest)
+    except ValueError:  # unbalanced quote: let the command's own instructions handle it
+        return None
+    out, err = io.StringIO(), io.StringIO()
+    previous = os.environ.get("NOTESCOS_HOME")
+    os.environ["NOTESCOS_HOME"] = str(home)
+    try:
+        with redirect_stderr(err):
+            code = main(argv, out=out, now=now)
+    except SystemExit:  # arguments the tool does not understand; say so here, not via Claude
+        lines = err.getvalue().strip().splitlines()
+        problem = lines[-1].split("error: ", 1)[-1] if lines else "unrecognised arguments"
+        return f"⚠️ Could not read that: {problem}. Try `/notemind:note-help`."
+    finally:
+        if previous is None:
+            os.environ.pop("NOTESCOS_HOME", None)
+        else:
+            os.environ["NOTESCOS_HOME"] = previous
+    if code != 0:
+        return "⚠️ " + (err.getvalue().strip().removeprefix("notescos: ") or "Something went wrong.")
+    return out.getvalue().strip() or None
+
+
 def _shown_recently(home: Path, brief, now: datetime) -> bool:
     """True if this same set of urgent notes was announced less than REPEAT_AFTER_HOURS ago."""
     ids = sorted(n["id"] for n in brief.overdue + brief.due_today)
@@ -95,12 +174,12 @@ def _shown_recently(home: Path, brief, now: datetime) -> bool:
     return False
 
 
-def log_error(home: Path) -> None:
+def log_error(home: Path, event: str = "hook") -> None:
     """Record a hook failure for later debugging without disturbing the session."""
     try:
         home.mkdir(parents=True, exist_ok=True)
         with open(home / "log", "a") as handle:
-            handle.write(f"{datetime.now().isoformat(timespec='seconds')} session-start\n")
+            handle.write(f"{datetime.now().isoformat(timespec='seconds')} {event}\n")
             handle.write(traceback.format_exc() + "\n")
     except OSError:
         pass
