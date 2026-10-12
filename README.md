@@ -23,11 +23,14 @@ Type a note in plain words, like `call Sara tomorrow at 3pm`. Notemind works out
 |---|---|---|
 | Save a note | `/notemind:note-add <text>` | `/note-add <text>` |
 | See what needs attention | `/notemind:note-today` | `/note-today` |
+| What to work on first | `/notemind:note-top [N]` | `/note-top [N]` |
+| Full check (overdue, soon, waiting) | `/notemind:note-check` | `/note-check` |
 | Browse notes | `/notemind:note-list` | `/note-list` |
 | See notes on a board | `/notemind:note-board [overdue\|due\|next 2 days\|22 sep]` | `/note-board` |
 | Change a note | `/notemind:note-edit <number> …` | `/note-edit <number> …` |
 | Hide a note until later | `/notemind:note-snooze <number> <when>` | `/note-snooze <number> <when>` |
 | Mark a note done | `/notemind:note-done <number>` | `/note-done <number>` |
+| Startup banner level | `/notemind:note-settings [alert quiet\|normal\|loud]` | `/note-settings …` |
 | Help | `/notemind:note-help` | `/note-help` |
 
 ```text
@@ -49,6 +52,22 @@ It asks where to build the board:
 - **Local file.** Nothing leaves your computer. The board is written to `~/.notescos/board.html`.
 
 This is the only part of Notemind that can send notes anywhere, and only if you say yes. The board is a snapshot: make it again to see later changes.
+
+## What to work on first
+
+`/notemind:note-top` ranks your open notes with a simple, explainable score and shows why each one is where it is (for example `overdue 3d · priority 2`). The score adds up how late or soon the note is, its priority (`note-edit 3 --priority 2`), whether it is marked urgent, and how long a follow-up (`--type followup` or `waiting_on`) has gone without a change. Snoozed, finished and silent notes are left out. `/notemind:note-check` lists everything that needs attention: overdue, due today, due in the next 2 days, and follow-ups waiting 3 days or more.
+
+## Startup banner levels
+
+`/notemind:note-settings alert <level>` sets how much the banner shows. It never shows snoozed notes or notes marked silent, and it lists at most four notes with a "…and N more" line.
+
+| Level | The banner shows |
+|---|---|
+| `quiet` | overdue notes and notes marked urgent |
+| `normal` (default) | overdue, due today, due in the next 2 days, and follow-ups waiting 3+ days |
+| `loud` | the same, looking 7 days ahead |
+
+Per note, `/notemind:note-edit 3 --alert silent` keeps a note out of alerts, and `--alert urgent` makes it show up at every level and rank higher.
 
 ## Notes without a date
 
@@ -106,7 +125,7 @@ To remove it: `/plugin uninstall notemind@notemind`. Your notes stay in `~/.note
 ## Privacy
 
 - Your notes are stored only on your computer. Notemind has no server and makes no network calls.
-- **Typing a command:** `note-today`, `note-list`, `note-done`, `note-edit` and `note-snooze` run on your machine, and Claude never sees them. The exceptions are a date Notemind cannot read (such as `end of next month`) and `note-edit` written in plain words (`note-edit 3 move it to friday`). Those go to Claude, which turns them into exact changes.
+- **Typing a command:** `note-today`, `note-top`, `note-check`, `note-list`, `note-done`, `note-edit`, `note-snooze` and and `note-settings` run on your machine, and Claude never sees them. The exceptions are a date Notemind cannot read (such as `end of next month`) and `note-edit` written in plain words (`note-edit 3 move it to friday`). Those go to Claude, which turns them into exact changes.
 - **Adding a note:** Notemind first reads the date with its own rules. If that works (for example `tomorrow at 3pm`, `22 sep`, `in 2 hours`) or the note has no date at all, it saves the note and Claude never sees it. Only when it cannot read a date phrase, such as `end of next month`, is the note passed to Claude to work out the date. That note's full text then goes to Claude, like anything else you type in a session.
 - **Startup banner:** your overdue notes are given to Claude as context so it can help you act on them.
 - **A small hook runs before every prompt you send** (about 85 ms) to catch Notemind commands. It reads each prompt but acts only on `/note-…` commands, and it stores and logs nothing else. Without it, those commands would reach Claude first. See [What the hook does](docs/hooks.md).

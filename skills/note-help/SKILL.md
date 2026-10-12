@@ -10,11 +10,14 @@ Show the user this guide as is, formatted cleanly.
 |---|---|
 | `/notemind:note-add <text>` | Save a note. The date is read from your sentence. |
 | `/notemind:note-today` | Overdue, due today and coming up in the next 7 days |
+| `/notemind:note-top [N]` | The notes that matter most right now, with the reason for each |
+| `/notemind:note-check` | Full check: overdue, due soon, follow-ups waiting too long |
 | `/notemind:note-list [--all] [--project X] [--type T] [--from DATE] [--to DATE] [--overdue]` | Browse your notes |
 | `/notemind:note-board [overdue \| due \| next 2 days \| 22 sep]` | Show your notes as a visual board (private Claude artifact or local file) |
 | `/notemind:note-edit <number> [--due X] [--text X] [--priority N] [--alert L] [--project X]` or in words, `note-edit 3 move it to friday` | Change a note |
 | `/notemind:note-snooze <number> <when>` | Hide a note until later, e.g. `note-snooze 3 tomorrow` or `3 days` |
 | `/notemind:note-done <number>` | Mark a note finished |
+| `/notemind:note-settings [alert quiet\|normal\|loud]` | How much the startup banner shows |
 | `/notemind:note-help` | This guide |
 
 **Examples**

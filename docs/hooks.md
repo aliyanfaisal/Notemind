@@ -8,8 +8,9 @@ Installing the plugin adds these, all inside the plugin folder Claude Code manag
 
 | What | Where |
 |---|---|
-| The `/notemind:note-add`, `note-today`, `note-list`, `note-edit`, `note-snooze`, `note-done`, `note-board` and `note-help` commands | `skills/` |
+| The `/notemind:note-add`, `note-top`, `note-check`, `note-settings`, `note-today`, `note-list`, `note-edit`, `note-snooze`, `note-done`, `note-board` and `note-help` commands | `skills/` |
 | One `SessionStart` hook and one `UserPromptSubmit` hook | `hooks/hooks.json` |
+| Your settings, only if you change them (`note-settings`) | `~/.notescos/config.json` |
 | A small launcher that runs the bundled Python code | `scripts/notescos` |
 
 Your own `settings.json` is not edited. Your notes are stored in `~/.notescos/notes.db` (created on first use) and are **not** removed when you uninstall the plugin. Delete that folder to erase them.
@@ -25,7 +26,7 @@ Registered command:
 Each time Claude Code starts, resumes or clears a session, it:
 
 1. Reads the small JSON message Claude Code sends on stdin (only the `source` field is used).
-2. Opens `~/.notescos/notes.db` and reads your open notes.
+2. Opens `~/.notescos/notes.db` and reads your open notes, and reads your alert level from `~/.notescos/config.json` if you have set one.
 3. Prints one JSON object to stdout:
    - `systemMessage`: the banner shown to you.
    - `hookSpecificOutput.additionalContext`: the same text given to Claude so it can help you act on it.
@@ -33,7 +34,7 @@ Each time Claude Code starts, resumes or clears a session, it:
 It does **not**: make network calls (this hook and the other one never do), write anything except a one-time `~/.notescos/welcomed` marker and an error log, read your code or transcripts, or run any other program.
 
 ### When it stays quiet
-- Nothing is overdue, due today or due in the next 2 days: no output at all.
+- Nothing needs attention at your alert level (`quiet`, `normal` or `loud`, set with `note-settings`): no output at all.
 - The session event is `compact` (context was just trimmed): no banner.
 - Notes set to `--alert silent` are never included.
 
@@ -51,9 +52,9 @@ Registered command:
 Its job is to keep your notes out of the model whenever Notemind can do the work itself. Claude Code runs it before each prompt you send, and it:
 
 1. Reads the JSON message on stdin and looks only at the `prompt` field.
-2. Does nothing unless the prompt starts with `/note-add`, `/note-today`, `/note-list`, `/note-done`, `/note-edit` or `/note-snooze` (with or without the `notemind:` prefix). Every other prompt is ignored, not stored and not logged.
+2. Does nothing unless the prompt starts with `/note-add`, `/note-today`, `/note-top`, `/note-check`, `/note-list`, `/note-done`, `/note-edit`, `/note-snooze` or `/note-settings` (with or without the `notemind:` prefix). Every other prompt is ignored, not stored and not logged.
 3. Handles the command itself and **blocks the prompt**, so Claude never sees it and no model call is made:
-   - `note-today`, `note-list` and `note-done` always run locally. They only read or update your notes, so they need no interpretation. Bad arguments get a short error shown to you.
+   - `note-today`, `note-top`, `note-check`, `note-list`, `note-done` and `note-settings` always run locally. They only read or update your notes, so they need no interpretation. Bad arguments get a short error shown to you.
    - `note-edit` and `note-snooze` run locally when written with options (`note-edit 3 --due "friday 5pm"`) or a date the built-in rules can read (`note-snooze 3 tomorrow`, `3 days`).
    - `note-add` reads the date with the built-in rules (`parse.py`, no AI). A clear date, or no date-like words at all, is saved locally.
 4. Lets the prompt through to Claude only for a `note-add` the rules cannot be sure of, a `note-edit` or `note-snooze` written in plain words or with a date the rules cannot read: words like "end of next month" or "next month at 3pm" left unread, or two different dates in one note. Claude then reads the note and works out the date, as `/notemind:note-add` always has.
@@ -74,6 +75,10 @@ Limits to know about:
 Your stored notes are not changed. The prompt hook also refuses to pass a `note-add` that contains sensitive data to Claude just so it can read a date: it tells you and saves nothing.
 
 Detection is not exhaustive. See the README for what it covers and what it cannot catch.
+
+## Why there is no `#note` shortcut
+
+A message like `#note call Ali tomorrow at 3pm` would be easy to save from a hook. It is left out on purpose. Claude Code names each session with a small model, from your first message, and it does this even when a hook blocks that message. Slash commands such as `/note-add` are not named this way, so they stay private. Plain text such as `#note …` is, so the note would be sent to Claude's naming model, and sensitive data would not be masked first. Use `/notemind:note-add` instead.
 
 ## What still goes through Claude
 

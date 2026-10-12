@@ -15,9 +15,12 @@ from . import __version__
 from .board import render_board
 from .brief import (build_brief, format_done, format_edited, format_list, format_saved,
                     format_snoozed, format_today)
+from . import settings as user_settings
 from .hooks import log_error, prompt_submit, session_start
 from .parse import needs_claude, parse_due
 from .redact import redact_note, redact_notes
+from .report import format_alert_set, format_check, format_settings, format_top
+from .score import rank
 from .store import (ALERT_LEVELS, NOTE_TYPES, DateNotUnderstood, NoteError, NoteStore,
                     default_home)
 
@@ -78,6 +81,15 @@ def build_parser() -> argparse.ArgumentParser:
     edit.add_argument("--project", help="'none' removes it")
     edit.add_argument("--tag", action="append", dest="tags",
                       help="replace the tags with these (repeat for several); --tag none clears them")
+
+    top = sub.add_parser("top", help="the notes that matter most right now")
+    top.add_argument("count", nargs="?", type=int, default=5)
+
+    sub.add_parser("check", help="overdue, due soon and follow-ups waiting too long")
+
+    settings = sub.add_parser("settings", help="show or change settings")
+    settings.add_argument("key", nargs="?", choices=["alert"])
+    settings.add_argument("value", nargs="?")
 
     snooze = sub.add_parser("snooze", help="hide a note until later")
     snooze.add_argument("id", type=int)
@@ -248,6 +260,27 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                 if args.redact:
                     note, _ = redact_note(note)
                 print(json.dumps(note) if args.json else format_snoozed(note), file=out)
+            elif args.command in ("top", "check"):
+                notes = store.list()
+                if args.redact:
+                    notes, _ = redact_notes(notes)
+                if args.command == "top":
+                    if args.count < 1:
+                        raise NoteError("Say how many notes to show, for example: top 5.")
+                    ranked = rank(notes, now, user_settings.load(default_home()).get("weights"))
+                    print(json.dumps(ranked[: args.count]) if args.json
+                          else format_top(ranked, args.count), file=out)
+                else:
+                    print(format_check(notes, now), file=out)
+            elif args.command == "settings":
+                home = default_home()
+                if args.key == "alert":
+                    if not args.value:
+                        raise NoteError("Say which level: quiet, normal or loud.")
+                    level = user_settings.set_alert_level(home, args.value)["alert_level"]
+                    print(format_alert_set(level), file=out)
+                else:
+                    print(format_settings(user_settings.load(home)), file=out)
             elif args.command == "done":
                 note = store.done(args.id)
                 if args.redact:

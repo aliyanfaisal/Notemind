@@ -80,56 +80,6 @@ def when_label(note: Dict, now: datetime) -> str:
     return f"{day:%a} {day.day} {day:%b}{clock}"
 
 
-def _item(note: Dict, now: datetime) -> str:
-    return f"#{note['id']} {note['text']} ({when_label(note, now)})"
-
-
-def format_banner(brief: Brief, now: datetime, max_items: int = 4) -> str:
-    """The short block shown when a session starts. Empty when nothing needs attention."""
-    if not brief.attention:
-        return ""
-    counts = [
-        f"{len(group)} {label}"
-        for group, label in (
-            (brief.overdue, "overdue"), (brief.due_today, "due today"),
-        )
-        if group
-    ]
-    lines = ["📌 Notes: " + " · ".join(counts)]
-    entries = [("!", n) for n in brief.overdue] + [("•", n) for n in brief.due_today]
-    for mark, note in entries[:max_items]:
-        lines.append(f"  {mark} {_item(note, now)}")
-    if len(entries) > max_items:
-        lines.append(f"  …and {len(entries) - max_items} more")
-    lines.append("  /notemind:note-today for details")
-    return "\n".join(lines)
-
-
-def format_banner_markdown(brief: Brief, now: datetime, max_items: int = 3) -> str:
-    """A compact markdown card for clients that show Claude's reply, not hook messages."""
-    if not brief.attention:
-        return ""
-    counts = [
-        f"{len(group)} {label}"
-        for group, label in (
-            (brief.overdue, "overdue"), (brief.due_today, "due today"),
-        )
-        if group
-    ]
-    rows = [("🔴", n) for n in brief.overdue] + [("🟠", n) for n in brief.due_today]
-    lines = [f"> **📌 Notemind** · {' · '.join(counts)}", ">"]
-    lines.append("> | | Note | When |")
-    lines.append("> |:-:|---|---|")
-    for icon, note in rows[:max_items]:
-        text = " ".join(note["text"].split()).replace("|", "/")
-        text = text if len(text) <= 48 else text[:47].rstrip() + "…"
-        lines.append(f"> | {icon} | #{note['id']} {text} | {when_label(note, now)} |")
-    hidden = len(rows) - max_items
-    tail = f"+{hidden} more · " if hidden > 0 else ""
-    lines += [">", f"> *{tail}/note-today for the full list*"]
-    return "\n".join(lines)
-
-
 def _cell(text: str, limit: int = 60) -> str:
     text = " ".join(text.split()).replace("|", "/")
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"

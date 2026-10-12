@@ -13,7 +13,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Optional
 
-from .brief import build_brief, format_banner, format_banner_markdown, format_saved
+from . import settings as user_settings
+from .banner import build_banner
+from .brief import build_brief, format_saved
 from .parse import needs_claude, parse_due
 from .redact import find_sensitive, redact_notes
 from .store import NoteStore, default_home
@@ -26,8 +28,7 @@ WELCOME = """📌 Notemind is ready.
 # Clients that run hooks but do not display a hook's systemMessage to the user.
 HIDES_HOOK_MESSAGES = {"claude-desktop"}
 
-BANNER_HORIZON_DAYS = 2
-REPEAT_AFTER_HOURS = 4  # in the app, do not repeat an unchanged banner within this time  # session banner covers overdue, today and the next 2 days
+REPEAT_AFTER_HOURS = 4  # in the app, do not repeat an unchanged banner within this time
 
 
 def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -> Optional[Dict]:
@@ -48,14 +49,14 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
     with NoteStore(home / "notes.db") as store:
         store.wake(now)
         notes = store.list()
-    brief = build_brief(notes, now, BANNER_HORIZON_DAYS, skip_silent=True)
+    level = user_settings.load(home)["alert_level"]
     # What Claude is given has sensitive data masked; the user's own banner does not.
-    safe_brief = build_brief(redact_notes(notes)[0], now, BANNER_HORIZON_DAYS, skip_silent=True)
+    safe_notes = redact_notes(notes)[0]
     hides = os.environ.get("CLAUDE_CODE_ENTRYPOINT") in HIDES_HOOK_MESSAGES
-    fmt = format_banner_markdown if hides else format_banner
-    banner = fmt(safe_brief if hides else brief, now)  # the app has Claude show it, so mask it
-    safe_banner = fmt(safe_brief, now)
-    if banner and hides and _shown_recently(home, brief, now):
+    # The app has Claude show the banner to the user, so it must be the masked one there.
+    banner = build_banner(safe_notes if hides else notes, now, level, markdown=hides)
+    safe_banner = build_banner(safe_notes, now, level, markdown=hides)
+    if banner and hides and _shown_recently(home, build_brief(notes, now), now):
         banner = ""  # the user already saw this exact list a moment ago
     if banner:
         parts.append(banner)
@@ -90,13 +91,15 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
 
 
 COMMAND_RE = re.compile(
-    r"^\s*/(?:notemind:)?(note-add|note-today|note-list|note-done|note-edit|note-snooze)(?:\s+(.*))?$",
+    r"^\s*/(?:notemind:)?(note-add|note-today|note-list|note-done|note-edit|note-snooze"
+    r"|note-top|note-check|note-settings)(?:\s+(.*))?$",
     re.DOTALL | re.IGNORECASE,
 )
 # Commands whose output depends only on the notes, so they never need Claude.
 LOCAL_COMMANDS = {
     "note-today": "today", "note-list": "list", "note-done": "done",
     "note-edit": "edit", "note-snooze": "snooze",
+    "note-top": "top", "note-check": "check", "note-settings": "settings",
 }
 # Free-form wording ("move it to friday") is for Claude to turn into options, not an error.
 CLAUDE_READS_FREE_FORM = {"edit", "snooze"}
@@ -114,7 +117,9 @@ def prompt_submit(stdin_text: str, now: datetime, home: Optional[Path] = None) -
         prompt = json.loads(stdin_text or "{}").get("prompt", "")
     except (ValueError, AttributeError):
         return None
-    match = COMMAND_RE.match(prompt) if isinstance(prompt, str) else None
+    if not isinstance(prompt, str):
+        return None
+    match = COMMAND_RE.match(prompt)
     if not match:
         return None
     name, rest = match.group(1).lower(), (match.group(2) or "").strip()
@@ -127,6 +132,8 @@ def prompt_submit(stdin_text: str, now: datetime, home: Optional[Path] = None) -
 
 
 def _add_locally(text: str, now: datetime, home: Path) -> Optional[str]:
+    """Save a note using only the built-in rules. Returns the message to show, or None to hand
+    the prompt to Claude."""
     if not text:
         return None
     order = os.environ.get("NOTESCOS_DATE_ORDER", "dmy").lower()
