@@ -145,8 +145,8 @@ def due_label(note: Dict) -> str:
 
 
 def _table(notes: List[Dict], now: datetime, last: str) -> List[str]:
-    rows = [f"| # | Note | {last} |", "|--:|---|---|"]
-    rows += [f"| {n['id']} | {_cell(n['text'])} | {when_label(n, now)} |" for n in notes]
+    rows = [f"| Note | {last} |", "|---|---|"]
+    rows += [f"| **#{n['id']}** {_cell(n['text'])} | {when_label(n, now)} |" for n in notes]
     return rows
 
 
@@ -177,7 +177,7 @@ def format_list(notes: List[Dict], now: datetime, show_done: bool = False) -> st
         return "*No notes yet. Add one with `note-add`.*"
     open_count = sum(1 for n in notes if n["status"] == "open")
     head = f"### 🗒️ Notes · {open_count} open"
-    rows = ["| # | Note | Due | Status |", "|--:|---|---|---|"]
+    rows = ["| Note | Due | Status |", "|---|---|---|"]
     for n in notes:
         if n["status"] == "done":
             due, status = due_label(n), "✅ Done"
@@ -187,7 +187,7 @@ def format_list(notes: List[Dict], now: datetime, show_done: bool = False) -> st
             label = when_label(n, now)
             icon = "🔴" if label.startswith("overdue") else "🟠" if label.startswith("today") else "🔵"
             due, status = due_label(n), f"{icon} {label}"
-        rows.append(f"| {n['id']} | {_cell(n['text'])} | {due} | {status} |")
+        rows.append(f"| **#{n['id']}** {_cell(n['text'])} | {due} | {status} |")
     return "\n".join([head, ""] + rows)
 
 

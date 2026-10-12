@@ -40,7 +40,7 @@ MONTH_FIRST_RE = re.compile(
     rf"\b(?:on\s+)?({_MONTH})\s+{_DAY}(?!\d)(?:\s*,?\s*(\d{{4}})\b)?", _FLAGS)
 RELATIVE_RE = re.compile(r"\b(day after tomorrow|tomorrow|today)\b", _FLAGS)
 IN_N_RE = re.compile(  # "in 2 hours", "in the next 2 hours", "within 3 days", "in an hour"
-    r"\b(?:in|within)\s+(?:the\s+)?(?:next\s+)?(\d+|an?)\s+(minutes?|mins?|hours?|hrs?|days?|weeks?)\b",
+    r"\b(?:in|within)\s+(?:the\s+)?(?:next\s+)?(\d+\s*|an?\s+)(minutes?|mins?|hours?|hrs?|days?|weeks?)\b",
     _FLAGS)
 WEEKDAY_RE = re.compile(rf"\b(?:(next|this)\s+)?({_alt(WEEKDAYS)})\b", _FLAGS)
 WEEKDAY_SHORT_RE = re.compile(
@@ -165,7 +165,7 @@ def _date_hits(text: str, now: datetime, order: str = "dmy") -> List[_Hit]:
         hits.append(_Hit(m.start(), m.end(), today + timedelta(days=offset), None, []))
 
     for m in IN_N_RE.finditer(text):
-        amount, unit = (1 if m[1].lower() in ('a', 'an') else int(m[1])), m[2].lower()
+        amount, unit = (1 if m[1].strip().lower() in ('a', 'an') else int(m[1])), m[2].lower()
         if unit.startswith(("day", "week")):
             days = amount * (7 if unit.startswith("week") else 1)
             hits.append(_Hit(m.start(), m.end(), today + timedelta(days=days), None, []))
@@ -252,7 +252,7 @@ _CUE_WORDS = [
     "day", "days", "hour", "hours", "hr", "hrs", "minute", "minutes", "min", "mins",
     "morning", "afternoon", "evening", "night", "midnight", "noon", "lunch", "breakfast",
     "dinner", "later", "soon", "next", "last", "this", "end of", "start of", "beginning of",
-    "before", "after", "until", "till", "deadline", "due", "o'clock", "oclock",
+    "before", "after", "until", "till", "o'clock", "oclock",
 ]
 DATE_CUE_RE = re.compile(
     rf"\b(?:{_alt(_CUE_WORDS)}|{_MONTH}|{_alt(WEEKDAYS)}|{_alt(WEEKDAY_SHORT)})\b"
