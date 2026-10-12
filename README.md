@@ -98,6 +98,7 @@ To remove it: `/plugin uninstall notemind@notemind`. Your notes stay in `~/.note
 
 ## More
 
+- [Notemind overview page](https://aliyanfaisal.com/open-source/notemind)
 - [What the hook does](docs/hooks.md)
 
 ## License
