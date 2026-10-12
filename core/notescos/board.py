@@ -184,7 +184,7 @@ def _stats(notes: List[Dict], now: datetime) -> str:
 
 
 def render_board(notes: List[Dict], now: datetime, label: Optional[str] = None,
-                 standalone: bool = True) -> str:
+                 standalone: bool = True, masked: int = 0) -> str:
     """Build the board. `label` names the range shown, for example 'Next 2 days'."""
     label = label or "All open notes"
     today = now.date()
@@ -209,7 +209,8 @@ def render_board(notes: List[Dict], now: datetime, label: Optional[str] = None,
         f"{body}"
         f'<footer>Made {now:%a} {now.day} {now:%b %H:%M} from your Notemind notes. '
         "Notes added or finished later will not appear until you make the board again."
-        "</footer></main>"
+        + (f" {masked} sensitive item{'s' if masked != 1 else ''} masked with *****." if masked else "")
+        + "</footer></main>"
     )
     if not standalone:
         return head + main

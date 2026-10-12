@@ -15,6 +15,7 @@ from .board import render_board
 from .brief import build_brief, format_done, format_list, format_saved, format_today
 from .hooks import log_error, prompt_submit, session_start
 from .parse import parse_due
+from .redact import redact_note, redact_notes
 from .store import ALERT_LEVELS, NOTE_TYPES, NoteError, NoteStore, default_home
 
 
@@ -24,6 +25,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--version", action="version", version=f"notescos {__version__}")
     parser.add_argument("--json", action="store_true", help="print JSON instead of text")
+    parser.add_argument("--redact", action="store_true",
+                        help="mask sensitive data (keys, passwords, card numbers...) in the output; "
+                             "used when the output is going to Claude")
     sub = parser.add_subparsers(dest="command", required=True)
 
     add = sub.add_parser("add", help="add a note")
@@ -121,35 +125,48 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                     person=args.person, project=args.project, tags=args.tags,
                 )
                 assumptions = found.assumptions if found else []
+                if args.redact:
+                    note, _ = redact_note(note)
                 if args.json:
                     print(json.dumps({**note, "assumptions": assumptions}), file=out)
                 else:
                     print(format_saved(note, assumptions), file=out)
             elif args.command == "list":
                 notes = _ranged_notes(store, args, now)
+                if args.redact:
+                    notes, _ = redact_notes(notes)
                 if args.json:
                     print(json.dumps(notes), file=out)
                 else:
                     print(format_list(notes, now), file=out)
             elif args.command == "board":
                 notes = _ranged_notes(store, args, now)
+                masked = 0
+                if args.artifact or args.redact:  # an artifact is published to claude.ai
+                    notes, masked = redact_notes(notes)
                 path = Path(args.out).expanduser() if args.out else default_home() / "board.html"
                 path.parent.mkdir(parents=True, exist_ok=True)
                 path.write_text(
-                    render_board(notes, now, args.label, standalone=not args.artifact),
+                    render_board(notes, now, args.label, standalone=not args.artifact, masked=masked),
                     encoding="utf-8",
                 )
                 if args.json:
                     print(json.dumps({"path": str(path), "count": len(notes)}), file=out)
                 else:
-                    print(f"🗂️ **Board ready** · {len(notes)} note{'s' if len(notes) != 1 else ''}\n\n"
+                    hidden = f" · {masked} sensitive item{'s' if masked != 1 else ''} masked" if masked else ""
+                    print(f"🗂️ **Board ready** · {len(notes)} note{'s' if len(notes) != 1 else ''}{hidden}\n\n"
                           f"`{path}`", file=out)
             elif args.command == "today":
-                brief = build_brief(store.list(), now)
+                notes = store.list()
+                if args.redact:
+                    notes, _ = redact_notes(notes)
+                brief = build_brief(notes, now)
                 print(json.dumps(brief.as_dict()) if args.json else format_today(brief, now),
                       file=out)
             elif args.command == "done":
                 note = store.done(args.id)
+                if args.redact:
+                    note, _ = redact_note(note)
                 print(json.dumps(note) if args.json else format_done(note), file=out)
     except NoteError as err:
         print(f"notescos: {err}", file=sys.stderr)

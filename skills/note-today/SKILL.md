@@ -5,6 +5,6 @@ allowed-tools: Bash(*/scripts/notescos *) Bash(*/scripts/notescos" *)
 ---
 Here is the user's overdue and due-today notes, produced just now by the tool as Markdown:
 
-!`"${CLAUDE_PLUGIN_ROOT}/scripts/notescos" today`
+!`"${CLAUDE_PLUGIN_ROOT}/scripts/notescos" --redact today`
 
 Reply with that Markdown exactly as it is (same headings, tables and emoji), without rewording, adding or removing notes. Do not add an introduction. If something is overdue, you may end with one short line suggesting `note-done <number>`.

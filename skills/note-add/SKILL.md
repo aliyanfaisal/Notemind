@@ -20,7 +20,7 @@ Current date and time on the user's machine (use it to resolve relative dates):
 3. Save it by running the command below. Put the note text between the two marker lines exactly as the user wrote it (do not fix, shorten or reword it) and put your date after `--due`. The quoted marker keeps quotes and symbols from breaking the shell.
 
 ```
-"${CLAUDE_PLUGIN_ROOT}/scripts/notescos" add --due <YYYY-MM-DD or YYYY-MM-DDTHH:MM or none> - <<'NOTESCOS_EOF'
+"${CLAUDE_PLUGIN_ROOT}/scripts/notescos" --redact add --due <YYYY-MM-DD or YYYY-MM-DDTHH:MM or none> - <<'NOTESCOS_EOF'
 <note text here>
 NOTESCOS_EOF
 ```

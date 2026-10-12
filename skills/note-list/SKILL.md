@@ -8,7 +8,7 @@ List the user's notes.
 
 Requested filters: $ARGUMENTS
 
-Run `"${CLAUDE_PLUGIN_ROOT}/scripts/notescos" list` and add only these options when the user asked for them:
+Run `"${CLAUDE_PLUGIN_ROOT}/scripts/notescos" --redact list` and add only these options when the user asked for them:
 - `--all` to include finished notes
 - `--project NAME` to show one project
 - `--type TYPE`, where TYPE is one of task, followup, waiting_on, decision, idea, reference

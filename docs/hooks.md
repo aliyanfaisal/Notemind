@@ -62,6 +62,18 @@ Limits to know about:
 - The hook runs on every prompt you send (about 85 ms), though it acts only on the four commands above.
 - If the hook fails for any reason it exits quietly and the prompt carries on to the command as usual.
 
+## Sensitive data masking
+
+`core/notescos/redact.py` finds passwords, API keys and tokens, private keys, card numbers, IBANs, US social security numbers, email addresses, international phone numbers and passwords in links, using patterns and checksums only (no AI, no network). Wherever note text is handed to Claude or sent to claude.ai, matches are replaced with `*****`:
+
+- the `additionalContext` of the SessionStart hook (the banner you see on screen is not masked),
+- the skills' tool output, because the skills call `notescos --redact …`,
+- the Claude artifact board (`board --artifact` always masks).
+
+Your stored notes are not changed. The prompt hook also refuses to pass a `note-add` that contains sensitive data to Claude just so it can read a date: it tells you and saves nothing.
+
+Detection is not exhaustive. See the README for what it covers and what it cannot catch.
+
 ## What still goes through Claude
 
 Notes are stored only on your computer and Notemind makes no network calls of its own. Claude still sees note text in these cases, like anything else in a Claude Code session:

@@ -15,6 +15,7 @@ from typing import Dict, Optional
 
 from .brief import build_brief, format_banner, format_banner_markdown, format_saved
 from .parse import needs_claude, parse_due
+from .redact import find_sensitive, redact_notes
 from .store import NoteStore, default_home
 
 WELCOME = """📌 Notemind is ready.
@@ -45,20 +46,27 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
     if first_run:
         parts.append(WELCOME)
     with NoteStore(home / "notes.db") as store:
-        brief = build_brief(store.list(), now, BANNER_HORIZON_DAYS, skip_silent=True)
+        notes = store.list()
+    brief = build_brief(notes, now, BANNER_HORIZON_DAYS, skip_silent=True)
+    # What Claude is given has sensitive data masked; the user's own banner does not.
+    safe_brief = build_brief(redact_notes(notes)[0], now, BANNER_HORIZON_DAYS, skip_silent=True)
     hides = os.environ.get("CLAUDE_CODE_ENTRYPOINT") in HIDES_HOOK_MESSAGES
-    banner = format_banner_markdown(brief, now) if hides else format_banner(brief, now)
+    fmt = format_banner_markdown if hides else format_banner
+    banner = fmt(safe_brief if hides else brief, now)  # the app has Claude show it, so mask it
+    safe_banner = fmt(safe_brief, now)
     if banner and hides and _shown_recently(home, brief, now):
         banner = ""  # the user already saw this exact list a moment ago
     if banner:
         parts.append(banner)
     if not parts:
         return None
+    safe_parts = [p if p is not banner else safe_banner for p in parts]
     if first_run:
         home.mkdir(parents=True, exist_ok=True)
         welcomed.write_text(now.isoformat(timespec="seconds"))
 
     text = "\n\n".join(parts)
+    safe_text = "\n\n".join(safe_parts)
     if hides:
         instruction = (
             "Notemind summary of the user's open notes. This app does not show hook "
@@ -75,7 +83,7 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
         "systemMessage": text,  # shown to the user by clients that display it
         "hookSpecificOutput": {
             "hookEventName": "SessionStart",
-            "additionalContext": instruction + text,
+            "additionalContext": instruction + safe_text,
         },
     }
 
@@ -120,6 +128,13 @@ def _add_locally(text: str, now: datetime, home: Path) -> Optional[str]:
         return None
     found = parse_due(text, now, order)
     if needs_claude(text, found):
+        if find_sensitive(text):  # never hand a secret to Claude just to read a date
+            return (
+                "⚠️ **Not saved.** This note looks like it contains sensitive data, and Notemind "
+                "could not read its date on its own, so it was not sent to Claude. "
+                "Write the date in a simpler way (for example `tomorrow at 3pm` or `22 sep`) "
+                "and try again, or add the note without a date."
+            )
         return None
     with NoteStore(home / "notes.db") as store:
         note = store.add(text, due=found.due if found else None)
