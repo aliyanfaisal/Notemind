@@ -64,6 +64,10 @@ class NoteError(Exception):
     """A user-facing problem (bad input, unknown note)."""
 
 
+class DateNotUnderstood(NoteError):
+    """The built-in rules cannot read this date with confidence; Claude should resolve it."""
+
+
 def default_home() -> Path:
     """Data directory: $NOTESCOS_HOME or ~/.notescos."""
     override = os.environ.get("NOTESCOS_HOME")
@@ -185,10 +189,13 @@ class NoteStore:
     ) -> List[Dict]:
         """Notes ordered by due date (undated last), then oldest first.
 
-        due_from / due_to are inclusive YYYY-MM-DD days; notes without a due date
+        status "active" means open plus snoozed. due_from / due_to are inclusive YYYY-MM-DD days; notes without a due date
         never match when either is given.
         """
         clauses, params = [], []
+        if status == "active":  # everything not finished: open and snoozed
+            clauses.append("status IN ('open','snoozed')")
+            status = None
         for bound, op in ((due_from, ">="), (due_to, "<=")):
             if bound is not None:
                 clauses.append(f"substr(due_at, 1, 10) {op} ?")
@@ -215,3 +222,71 @@ class NoteStore:
                 (now, now, note_id),
             )
         return self.get(note_id)
+
+    # Fields note-edit may change. None clears due, person and project.
+    _EDITABLE = ("text", "type", "due", "priority", "alert_level", "person", "project", "tags")
+
+    def update(self, note_id: int, **changes) -> Dict:
+        """Change the given fields of a note; fields not passed are left alone."""
+        self.get(note_id)
+        unknown = set(changes) - set(self._EDITABLE)
+        if unknown:
+            raise NoteError(f"Cannot edit: {', '.join(sorted(unknown))}.")
+        columns: Dict[str, object] = {}
+        if "text" in changes:
+            text = (changes["text"] or "").strip()
+            if not text:
+                raise NoteError("A note needs some text.")
+            columns["text"] = text
+        if "type" in changes:
+            if changes["type"] not in NOTE_TYPES:
+                raise NoteError(f"Unknown type {changes['type']!r}. Choose from: {', '.join(NOTE_TYPES)}.")
+            columns["type"] = changes["type"]
+        if "due" in changes:
+            columns["due_at"] = normalize_due(changes["due"]) if changes["due"] else None
+        if "priority" in changes:
+            if changes["priority"] not in (0, 1, 2, 3):
+                raise NoteError("Priority must be 0 (none), 1, 2 or 3.")
+            columns["priority"] = changes["priority"]
+        if "alert_level" in changes:
+            if changes["alert_level"] not in ALERT_LEVELS:
+                raise NoteError(
+                    f"Unknown alert level {changes['alert_level']!r}. Choose from: {', '.join(ALERT_LEVELS)}.")
+            columns["alert_level"] = changes["alert_level"]
+        for name in ("person", "project"):
+            if name in changes:
+                columns[name] = (changes[name] or "").strip() or None
+        if "tags" in changes:
+            columns["tags"] = json.dumps(changes["tags"] or [])
+        if not columns:
+            return self.get(note_id)
+        columns["updated_at"] = self._clock()
+        assignments = ", ".join(f"{name} = ?" for name in columns)
+        with self.conn:
+            self.conn.execute(
+                f"UPDATE notes SET {assignments} WHERE id = ?", [*columns.values(), note_id])
+        return self.get(note_id)
+
+    def snooze(self, note_id: int, until: Optional[str]) -> Dict:
+        """Hide an open note until a local date/time; until=None brings it back now."""
+        note = self.get(note_id)
+        if note["status"] == "done":
+            raise NoteError(f"Note #{note_id} is already done.")
+        when = normalize_due(until) if until else None
+        with self.conn:
+            self.conn.execute(
+                "UPDATE notes SET status = ?, snoozed_until = ?, updated_at = ? WHERE id = ?",
+                ("snoozed" if when else "open", when, self._clock(), note_id),
+            )
+        return self.get(note_id)
+
+    def wake(self, now: datetime) -> int:
+        """Bring back snoozed notes whose time has come. Returns how many woke up."""
+        stamp = now.isoformat(timespec="minutes")  # a date-only snooze wakes at 00:00
+        with self.conn:
+            cur = self.conn.execute(
+                "UPDATE notes SET status = 'open', snoozed_until = NULL, updated_at = ? "
+                "WHERE status = 'snoozed' AND snoozed_until <= ?",
+                (self._clock(), stamp),
+            )
+        return cur.rowcount

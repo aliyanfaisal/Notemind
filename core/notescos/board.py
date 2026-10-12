@@ -11,7 +11,7 @@ from datetime import date, datetime, timedelta
 from html import escape
 from typing import Dict, List, Optional
 
-from .brief import split_due, when_label
+from .brief import split_due, stamp_label, when_label
 
 TITLE = "Notemind Board"
 
@@ -83,7 +83,7 @@ header h1 span { color: var(--accent); }
 .s-today { background: var(--today-bg); color: var(--today); }
 .s-upcoming { background: var(--upcoming-bg); color: var(--upcoming); }
 .s-done { background: var(--done-bg); color: var(--done); }
-.s-nodate { background: var(--nodate-bg); color: var(--nodate); }
+.s-nodate, .s-snoozed { background: var(--nodate-bg); color: var(--nodate); }
 .note.is-done .text { text-decoration: line-through; color: var(--muted); }
 .empty {
   margin-top: 28px; padding: 28px 16px; text-align: center; color: var(--muted);
@@ -102,6 +102,8 @@ def _status(note: Dict, now: datetime):
     """(css class, short label) for a note's state."""
     if note["status"] == "done":
         return "s-done", "Done"
+    if note["status"] == "snoozed":
+        return "s-snoozed", f"Snoozed until {stamp_label(note['snoozed_until'])}"
     if not note["due_at"]:
         return "s-nodate", "No date"
     label = when_label(note, now)
@@ -171,9 +173,9 @@ def _note_html(note: Dict, now: datetime) -> str:
 
 
 def _stats(notes: List[Dict], now: datetime) -> str:
-    counts = OrderedDict((k, 0) for k in ("s-overdue", "s-today", "s-upcoming", "s-nodate", "s-done"))
+    counts = OrderedDict((k, 0) for k in ("s-overdue", "s-today", "s-upcoming", "s-nodate", "s-snoozed", "s-done"))
     names = {"s-overdue": "overdue", "s-today": "due today", "s-upcoming": "upcoming",
-             "s-nodate": "no date", "s-done": "done"}
+             "s-nodate": "no date", "s-snoozed": "snoozed", "s-done": "done"}
     for note in notes:
         counts[_status(note, now)[0]] += 1
     total = f'<li class="chip"><strong>{len(notes)}</strong> note{"s" if len(notes) != 1 else ""}</li>'

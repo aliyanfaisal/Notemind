@@ -8,7 +8,7 @@ Installing the plugin adds these, all inside the plugin folder Claude Code manag
 
 | What | Where |
 |---|---|
-| The `/notemind:note-add`, `/notemind:note-today`, `/notemind:note-list`, `/notemind:note-done`, `/notemind:note-board`, `/notemind:note-help` commands | `skills/` |
+| The `/notemind:note-add`, `note-today`, `note-list`, `note-edit`, `note-snooze`, `note-done`, `note-board` and `note-help` commands | `skills/` |
 | One `SessionStart` hook and one `UserPromptSubmit` hook | `hooks/hooks.json` |
 | A small launcher that runs the bundled Python code | `scripts/notescos` |
 
@@ -51,11 +51,12 @@ Registered command:
 Its job is to keep your notes out of the model whenever Notemind can do the work itself. Claude Code runs it before each prompt you send, and it:
 
 1. Reads the JSON message on stdin and looks only at the `prompt` field.
-2. Does nothing unless the prompt starts with `/note-add`, `/note-today`, `/note-list` or `/note-done` (with or without the `notemind:` prefix). Every other prompt is ignored, not stored and not logged.
+2. Does nothing unless the prompt starts with `/note-add`, `/note-today`, `/note-list`, `/note-done`, `/note-edit` or `/note-snooze` (with or without the `notemind:` prefix). Every other prompt is ignored, not stored and not logged.
 3. Handles the command itself and **blocks the prompt**, so Claude never sees it and no model call is made:
    - `note-today`, `note-list` and `note-done` always run locally. They only read or update your notes, so they need no interpretation. Bad arguments get a short error shown to you.
+   - `note-edit` and `note-snooze` run locally when written with options (`note-edit 3 --due "friday 5pm"`) or a date the built-in rules can read (`note-snooze 3 tomorrow`, `3 days`).
    - `note-add` reads the date with the built-in rules (`parse.py`, no AI). A clear date, or no date-like words at all, is saved locally.
-4. Lets the prompt through to Claude only for a `note-add` the rules cannot be sure of: words like "end of next month" or "next month at 3pm" left unread, or two different dates in one note. Claude then reads the note and works out the date, as `/notemind:note-add` always has.
+4. Lets the prompt through to Claude only for a `note-add` the rules cannot be sure of, a `note-edit` or `note-snooze` written in plain words or with a date the rules cannot read: words like "end of next month" or "next month at 3pm" left unread, or two different dates in one note. Claude then reads the note and works out the date, as `/notemind:note-add` always has.
 
 Limits to know about:
 - A hook cannot rewrite your prompt, so when the rules cannot read a note, **the whole note text goes to Claude**, not just the date words.
@@ -77,13 +78,13 @@ Detection is not exhaustive. See the README for what it covers and what it canno
 ## What still goes through Claude
 
 Notes are stored only on your computer and Notemind makes no network calls of its own. Claude still sees note text in these cases, like anything else in a Claude Code session:
-- a `note-add` whose date the rules could not read;
+- a `note-add`, `note-edit` or `note-snooze` whose date the rules could not read, or a `note-edit` written in plain words;
 - the startup banner, because your overdue notes are given to Claude as context;
 - `note-board`, which Claude runs. Its Claude artifact option asks first, then publishes a private copy of your notes to claude.ai.
 
 ## The commands (skills)
 
-- `/notemind:note-add`, `/notemind:note-done` and `/notemind:note-board` can only be run by you (`disable-model-invocation: true`), so Claude never saves or closes a note on its own.
+- `/notemind:note-add`, `note-edit`, `note-snooze`, `note-done` and `note-board` can only be run by you (`disable-model-invocation: true`), so Claude never saves or closes a note on its own.
 - `/notemind:note-today`, `/notemind:note-list` and `/notemind:note-help` can also be used by Claude when you ask things like "what's due?". When you type the slash command yourself, the hook above answers it without Claude.
 - `/notemind:note-board` is the one command that can send notes off your machine. Before publishing a Claude artifact it asks you to confirm, tells you the notes go to claude.ai, and publishes the artifact as private. The Python tool itself never makes a network call: it only writes an HTML file, and Claude's Artifact tool does the upload only after you choose it. Choosing the local file writes `~/.notescos/board.html` and nothing else.
 - Every skill is limited to running this tool (`allowed-tools: Bash(notescos *)`).

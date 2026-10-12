@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 from datetime import datetime
 from pathlib import Path
@@ -12,11 +13,13 @@ from typing import List, Optional, TextIO
 
 from . import __version__
 from .board import render_board
-from .brief import build_brief, format_done, format_list, format_saved, format_today
+from .brief import (build_brief, format_done, format_edited, format_list, format_saved,
+                    format_snoozed, format_today)
 from .hooks import log_error, prompt_submit, session_start
-from .parse import parse_due
+from .parse import needs_claude, parse_due
 from .redact import redact_note, redact_notes
-from .store import ALERT_LEVELS, NOTE_TYPES, NoteError, NoteStore, default_home
+from .store import (ALERT_LEVELS, NOTE_TYPES, DateNotUnderstood, NoteError, NoteStore,
+                    default_home)
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -63,6 +66,23 @@ def build_parser() -> argparse.ArgumentParser:
 
     done = sub.add_parser("done", help="mark a note done")
     done.add_argument("id", type=int)
+
+    edit = sub.add_parser("edit", help="change a note")
+    edit.add_argument("id", type=int)
+    edit.add_argument("--text", help="new note text; use - to read it from stdin")
+    edit.add_argument("--due", help="new due date in words or YYYY-MM-DD[THH:MM]; 'none' removes it")
+    edit.add_argument("--type", choices=[t for t in NOTE_TYPES if not t.startswith("money_")])
+    edit.add_argument("--priority", type=int, choices=[0, 1, 2, 3])
+    edit.add_argument("--alert", choices=ALERT_LEVELS, dest="alert_level")
+    edit.add_argument("--person", help="'none' removes it")
+    edit.add_argument("--project", help="'none' removes it")
+    edit.add_argument("--tag", action="append", dest="tags",
+                      help="replace the tags with these (repeat for several); --tag none clears them")
+
+    snooze = sub.add_parser("snooze", help="hide a note until later")
+    snooze.add_argument("id", type=int)
+    snooze.add_argument("when", nargs="*", help="when it should come back: 'tomorrow', '3 days', 'friday 9am'")
+    snooze.add_argument("--clear", action="store_true", help="bring the note back now")
     return parser
 
 
@@ -76,7 +96,7 @@ def _add_range_options(parser: argparse.ArgumentParser) -> None:
 
 def _ranged_notes(store: NoteStore, args, now: datetime) -> List[dict]:
     notes = store.list(
-        status=None if getattr(args, "all", False) else "open",
+        status=None if getattr(args, "all", False) else "active",
         type=getattr(args, "type", None), project=getattr(args, "project", None),
         due_from=args.due_from, due_to=args.due_to,
     )
@@ -84,6 +104,33 @@ def _ranged_notes(store: NoteStore, args, now: datetime) -> List[dict]:
         overdue = {n["id"] for n in build_brief(notes, now).overdue}
         notes = [n for n in notes if n["id"] in overdue]
     return notes
+
+
+_SHORT_SPAN = re.compile(r"^(\d+)\s*(m|min|mins|minutes?|h|hr|hrs|hours?|d|days?|w|weeks?)$", re.IGNORECASE)
+
+
+def read_date(phrase: str, now: datetime, order: str) -> str:
+    """Turn words like 'friday 5pm' into YYYY-MM-DD[THH:MM] using only the built-in rules.
+
+    Raises DateNotUnderstood when the rules cannot be sure, so a caller can hand the
+    wording to Claude instead of saving a guess.
+    """
+    phrase = " ".join(phrase.split())
+    short = _SHORT_SPAN.match(phrase)
+    if short:  # "3 days" or "2h" mean "in 3 days" / "in 2h"
+        unit = {"m": "minutes", "h": "hours", "d": "days", "w": "weeks"}[short[2][0].lower()]
+        phrase = f"in {short[1]} {unit}"
+    found = parse_due(phrase, now, order)
+    if not found or needs_claude(phrase, found):
+        raise DateNotUnderstood(f"Could not read the date {phrase!r}.")
+    return found.due
+
+
+def _date_order() -> str:
+    order = os.environ.get("NOTESCOS_DATE_ORDER", "dmy").lower()
+    if order not in ("dmy", "mdy"):
+        raise NoteError("NOTESCOS_DATE_ORDER must be 'dmy' or 'mdy'.")
+    return order
 
 
 SANDBOX_WARNING = (
@@ -106,14 +153,13 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
         return _run_hook(args.event, out, now)
     try:
         with NoteStore() as store:
+            store.wake(now)  # bring back snoozed notes whose time has come
             if args.command == "add":
                 text = " ".join(args.text)
                 if args.text == ["-"]:
                     text = " ".join(sys.stdin.read().split())
                 # An explicit --due wins; otherwise read the date from the sentence.
-                order = os.environ.get("NOTESCOS_DATE_ORDER", "dmy").lower()
-                if order not in ("dmy", "mdy"):
-                    raise NoteError("NOTESCOS_DATE_ORDER must be 'dmy' or 'mdy'.")
+                order = _date_order()
                 if args.due and args.due.lower() == "none":
                     found, due = None, None  # the caller decided this note has no date
                 else:
@@ -163,11 +209,53 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                 brief = build_brief(notes, now)
                 print(json.dumps(brief.as_dict()) if args.json else format_today(brief, now),
                       file=out)
+            elif args.command == "edit":
+                changes = {}
+                if args.text is not None:
+                    changes["text"] = " ".join(sys.stdin.read().split()) if args.text == "-" else args.text
+                if args.due is not None:
+                    changes["due"] = None if args.due.lower() == "none" else read_date(
+                        args.due, now, _date_order())
+                if args.type is not None:
+                    changes["type"] = args.type
+                if args.priority is not None:
+                    changes["priority"] = args.priority
+                if args.alert_level is not None:
+                    changes["alert_level"] = args.alert_level
+                for name in ("person", "project"):
+                    value = getattr(args, name)
+                    if value is not None:
+                        changes[name] = None if value.lower() == "none" else value
+                if args.tags is not None:
+                    changes["tags"] = [] if [t.lower() for t in args.tags] == ["none"] else args.tags
+                if not changes:
+                    raise NoteError("Nothing to change. Use --text, --due, --priority, --alert, "
+                                    "--type, --person, --project or --tag.")
+                old = store.get(args.id)
+                new = store.update(args.id, **changes)
+                if args.redact:
+                    old, new = redact_note(old)[0], redact_note(new)[0]
+                print(json.dumps(new) if args.json else format_edited(old, new), file=out)
+            elif args.command == "snooze":
+                until = None
+                if not args.clear:
+                    if not args.when:
+                        raise NoteError("Say when it should come back, for example: snooze 3 tomorrow.")
+                    until = read_date(" ".join(args.when), now, _date_order())
+                    if datetime.fromisoformat(until) <= now.replace(second=0, microsecond=0):
+                        raise NoteError("That time has already passed. Pick a later time.")
+                note = store.snooze(args.id, until)
+                if args.redact:
+                    note, _ = redact_note(note)
+                print(json.dumps(note) if args.json else format_snoozed(note), file=out)
             elif args.command == "done":
                 note = store.done(args.id)
                 if args.redact:
                     note, _ = redact_note(note)
                 print(json.dumps(note) if args.json else format_done(note), file=out)
+    except DateNotUnderstood as err:
+        print(f"notescos: {err}", file=sys.stderr)
+        return 3  # the caller may ask Claude to read the date instead
     except NoteError as err:
         print(f"notescos: {err}", file=sys.stderr)
         return 1

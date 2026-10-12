@@ -135,13 +135,15 @@ def _cell(text: str, limit: int = 60) -> str:
     return text if len(text) <= limit else text[: limit - 1].rstrip() + "…"
 
 
-def due_label(note: Dict) -> str:
-    """Absolute due date for display: 'Fri 9 Oct, 16:00' or 'Fri 9 Oct'."""
-    if not note["due_at"]:
-        return "No date"
-    day, at = split_due(note["due_at"])
+def stamp_label(value: str) -> str:
+    """Absolute date for display: 'Fri 9 Oct, 16:00' or 'Fri 9 Oct'."""
+    day, at = split_due(value)
     label = f"{day:%a} {day.day} {day:%b}"
     return f"{label}, {at:%H:%M}" if at else label
+
+
+def due_label(note: Dict) -> str:
+    return stamp_label(note["due_at"]) if note["due_at"] else "No date"
 
 
 def _table(notes: List[Dict], now: datetime, last: str) -> List[str]:
@@ -176,11 +178,14 @@ def format_list(notes: List[Dict], now: datetime, show_done: bool = False) -> st
     if not notes:
         return "*No notes yet. Add one with `note-add`.*"
     open_count = sum(1 for n in notes if n["status"] == "open")
-    head = f"### 🗒️ Notes · {open_count} open"
+    snoozed = sum(1 for n in notes if n["status"] == "snoozed")
+    head = f"### 🗒️ Notes · {open_count} open" + (f" · {snoozed} snoozed" if snoozed else "")
     rows = ["| Note | Due | Status |", "|---|---|---|"]
     for n in notes:
         if n["status"] == "done":
             due, status = due_label(n), "✅ Done"
+        elif n["status"] == "snoozed":
+            due, status = due_label(n) if n["due_at"] else "—", f"💤 until {stamp_label(n['snoozed_until'])}"
         elif not n["due_at"]:
             due, status = "—", "Open"
         else:
@@ -202,3 +207,36 @@ def format_saved(note: Dict, assumptions: List[str]) -> str:
 
 def format_done(note: Dict) -> str:
     return f"✅ **Done** · #{note['id']} {note['text']}"
+
+
+def format_snoozed(note: Dict) -> str:
+    if note["status"] == "snoozed":
+        return (f"💤 **Snoozed** · #{note['id']} {note['text']}\n\n"
+                f"⏰ **Back on:** {stamp_label(note['snoozed_until'])}")
+    return f"⏰ **Back on your list** · #{note['id']} {note['text']}"
+
+
+_EDIT_LABELS = (
+    ("text", "Note"), ("type", "Type"), ("due_at", "Due"), ("priority", "Priority"),
+    ("alert_level", "Alert"), ("person", "Person"), ("project", "Project"), ("tags", "Tags"),
+)
+
+
+def _edit_value(field: str, value) -> str:
+    if value in (None, "", []):
+        return "none" if field != "priority" else "none"
+    if field == "due_at":
+        return stamp_label(value)
+    if field == "tags":
+        return ", ".join(value)
+    return str(value).replace("_", " ") if field == "type" else str(value)
+
+
+def format_edited(old: Dict, new: Dict) -> str:
+    """Markdown summary of what note-edit changed."""
+    changes = [(label, old[f], new[f], f) for f, label in _EDIT_LABELS if old[f] != new[f]]
+    if not changes:
+        return f"ℹ️ **Nothing changed** · #{new['id']} {new['text']}"
+    lines = [f"✏️ **Updated** · #{new['id']} {new['text']}", ""]
+    lines += [f"- **{label}:** {_edit_value(f, a)} → {_edit_value(f, b)}" for label, a, b, f in changes]
+    return "\n".join(lines)

@@ -46,6 +46,7 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
     if first_run:
         parts.append(WELCOME)
     with NoteStore(home / "notes.db") as store:
+        store.wake(now)
         notes = store.list()
     brief = build_brief(notes, now, BANNER_HORIZON_DAYS, skip_silent=True)
     # What Claude is given has sensitive data masked; the user's own banner does not.
@@ -89,11 +90,16 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
 
 
 COMMAND_RE = re.compile(
-    r"^\s*/(?:notemind:)?(note-add|note-today|note-list|note-done)(?:\s+(.*))?$",
+    r"^\s*/(?:notemind:)?(note-add|note-today|note-list|note-done|note-edit|note-snooze)(?:\s+(.*))?$",
     re.DOTALL | re.IGNORECASE,
 )
 # Commands whose output depends only on the notes, so they never need Claude.
-LOCAL_COMMANDS = {"note-today": "today", "note-list": "list", "note-done": "done"}
+LOCAL_COMMANDS = {
+    "note-today": "today", "note-list": "list", "note-done": "done",
+    "note-edit": "edit", "note-snooze": "snooze",
+}
+# Free-form wording ("move it to friday") is for Claude to turn into options, not an error.
+CLAUDE_READS_FREE_FORM = {"edit", "snooze"}
 
 
 def prompt_submit(stdin_text: str, now: datetime, home: Optional[Path] = None) -> Optional[Dict]:
@@ -155,7 +161,10 @@ def _run_locally(command: str, rest: str, now: datetime, home: Path) -> Optional
     try:
         with redirect_stderr(err):
             code = main(argv, out=out, now=now)
-    except SystemExit:  # arguments the tool does not understand; say so here, not via Claude
+    except SystemExit:  # arguments the tool does not understand
+        free_form = len(argv) < 3 or not argv[2].startswith("-")
+        if command in CLAUDE_READS_FREE_FORM and free_form:
+            return None  # words like "move it to friday", not options: Claude reads them
         lines = err.getvalue().strip().splitlines()
         problem = lines[-1].split("error: ", 1)[-1] if lines else "unrecognised arguments"
         return f"⚠️ Could not read that: {problem}. Try `/notemind:note-help`."
@@ -164,6 +173,8 @@ def _run_locally(command: str, rest: str, now: datetime, home: Path) -> Optional
             os.environ.pop("NOTESCOS_HOME", None)
         else:
             os.environ["NOTESCOS_HOME"] = previous
+    if code == 3:  # a date the built-in rules cannot read: Claude resolves it
+        return None
     if code != 0:
         return "⚠️ " + (err.getvalue().strip().removeprefix("notescos: ") or "Something went wrong.")
     return out.getvalue().strip() or None
