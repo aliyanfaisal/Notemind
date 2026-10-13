@@ -24,6 +24,7 @@ from .store import NoteStore, default_home
 WELCOME = """📌 Notemind is ready.
   /notemind:note-add <text>   save a note (dates in your sentence are understood)
   /notemind:note-today        what needs your attention
+  /notemind:note-tour         a 2-minute guided tour
   /notemind:note-help         all commands"""
 
 # Clients that run hooks but do not display a hook's systemMessage to the user.
@@ -95,7 +96,7 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
 INLINE_NOTE_RE = re.compile(r"^\s*#note\s+(.+)$", re.DOTALL | re.IGNORECASE)
 COMMAND_RE = re.compile(
     r"^\s*/(?:notemind:)?(note-add|note-today|note-list|note-done|note-edit|note-snooze"
-    r"|note-top|note-check|note-settings)(?:\s+(.*))?$",
+    r"|note-top|note-check|note-settings|note-forget)(?:\s+(.*))?$",
     re.DOTALL | re.IGNORECASE,
 )
 # Commands whose output depends only on the notes, so they never need Claude.
@@ -103,6 +104,7 @@ LOCAL_COMMANDS = {
     "note-today": "today", "note-list": "list", "note-done": "done",
     "note-edit": "edit", "note-snooze": "snooze",
     "note-top": "top", "note-check": "check", "note-settings": "settings",
+    "note-forget": "forget",
 }
 # Free-form wording ("move it to friday") is for Claude to turn into options, not an error.
 CLAUDE_READS_FREE_FORM = {"edit", "snooze"}

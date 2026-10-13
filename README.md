@@ -35,6 +35,8 @@ Type a note in plain words, like `call Sara tomorrow at 3pm`. Notemind works out
 | Change a note | `/notemind:note-edit <number> …` | `/note-edit <number> …` |
 | Hide a note until later | `/notemind:note-snooze <number> <when>` | `/note-snooze <number> <when>` |
 | Mark a note done | `/notemind:note-done <number>` | `/note-done <number>` |
+| Delete notes for good | `/notemind:note-forget <number> \| --project X \| --all` | `/note-forget …` |
+| 2-minute guided tour | `/notemind:note-tour` | `/note-tour` |
 | Startup banner level | `/notemind:note-settings [alert quiet\|normal\|loud]` | `/note-settings …` |
 | Help | `/notemind:note-help` | `/note-help` |
 
@@ -84,6 +86,14 @@ The search runs on your machine. Claude then reads **the matching notes only**, 
 ## Notes that need your input
 
 If Notemind had to **guess** a date (for example `call Sara at 9am` after 9am has passed, so it picked tomorrow), or a follow-up has no date at all, the note is saved as *needs your input*. It does not alert until you confirm it, and the startup banner, `note-today` and `note-check` say "N need your input". Claude then asks what you meant. Answer with `note-edit 3 --due friday`, or accept it as it is with `note-edit 3 --confirm`. A date you write out in full (`--due`) is never questioned.
+
+## Deleting notes
+
+`/notemind:note-forget 3` deletes note 3 at once. `note-forget --project shop` and `note-forget --all` first **show what would be deleted** and delete nothing; run the same command again with `--yes` to confirm. Deleted notes cannot be brought back. It runs on your machine, so Claude never sees it. To remove everything Notemind has stored, you can also delete the `~/.notescos/` folder.
+
+## Guided tour
+
+`/notemind:note-tour` walks you through Notemind in about two minutes with one sample note: it saves it, shows it in `note-today`, finds it with `note-ask`, marks it done, then deletes it. It is offered on first run. Claude runs the tour, so the sample note (nothing private) goes through the model.
 
 ## The notes board
 
@@ -168,7 +178,7 @@ To remove it: `/plugin uninstall notemind@notemind`. Your notes stay in `~/.note
 ## Privacy
 
 - Your notes are stored only on your computer. Notemind has no server and makes no network calls.
-- **Typing a command:** `note-today`, `note-top`, `note-check`, `note-list`, `note-done`, `note-edit`, `note-snooze` and and `note-settings` run on your machine, and Claude never sees them. The exceptions are a date Notemind cannot read (such as `end of next month`) and `note-edit` written in plain words (`note-edit 3 move it to friday`). Those go to Claude, which turns them into exact changes.
+- **Typing a command:** `note-today`, `note-top`, `note-check`, `note-list`, `note-done`, `note-edit`, `note-snooze`, `note-forget` and `note-settings` run on your machine, and Claude never sees them. The exceptions are a date Notemind cannot read (such as `end of next month`) and `note-edit` written in plain words (`note-edit 3 move it to friday`). Those go to Claude, which turns them into exact changes.
 - **Adding a note:** Notemind first reads the date with its own rules. If that works (for example `tomorrow at 3pm`, `22 sep`, `in 2 hours`) or the note has no date at all, it saves the note and Claude never sees it. Only when it cannot read a date phrase, such as `end of next month`, is the note passed to Claude to work out the date. That note's full text then goes to Claude, like anything else you type in a session.
 - **Asking your notes:** `note-ask` searches locally, but the notes that match your question are given to Claude (masked for sensitive data) so it can answer. See [Asking your notes](#asking-your-notes).
 - **Startup banner:** your overdue notes are given to Claude as context so it can help you act on them.

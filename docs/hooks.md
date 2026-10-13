@@ -8,7 +8,7 @@ Installing the plugin adds these, all inside the plugin folder Claude Code manag
 
 | What | Where |
 |---|---|
-| The `/notemind:note-add`, `note-top`, `note-check`, `note-settings`, `note-today`, `note-list`, `note-edit`, `note-snooze`, `note-done`, `note-ask`, `note-board` and `note-help` commands | `skills/` |
+| The `/notemind:note-add`, `note-top`, `note-check`, `note-settings`, `note-today`, `note-list`, `note-edit`, `note-snooze`, `note-done`, `note-ask`, `note-forget`, `note-tour`, `note-board` and `note-help` commands | `skills/` |
 | One `SessionStart` hook and one `UserPromptSubmit` hook | `hooks/hooks.json` |
 | Your settings, only if you change them (`note-settings`) | `~/.notescos/config.json` |
 | A small launcher that runs the bundled Python code | `scripts/notescos` |
@@ -52,9 +52,9 @@ Registered command:
 Its job is to keep your notes out of the model whenever Notemind can do the work itself. Claude Code runs it before each prompt you send, and it:
 
 1. Reads the JSON message on stdin and looks only at the `prompt` field.
-2. Does nothing unless the prompt starts with `/note-add`, `/note-today`, `/note-top`, `/note-check`, `/note-list`, `/note-done`, `/note-edit`, `/note-snooze` or `/note-settings` (with or without the `notemind:` prefix), or with `#note `. Every other prompt is ignored, not stored and not logged.
+2. Does nothing unless the prompt starts with `/note-add`, `/note-today`, `/note-top`, `/note-check`, `/note-list`, `/note-done`, `/note-edit`, `/note-snooze`, `/note-forget` or `/note-settings` (with or without the `notemind:` prefix), or with `#note `. Every other prompt is ignored, not stored and not logged.
 3. Handles the command itself and **blocks the prompt**, so Claude never sees it and no model call is made:
-   - `note-today`, `note-top`, `note-check`, `note-list`, `note-done` and `note-settings` always run locally. They only read or update your notes, so they need no interpretation. Bad arguments get a short error shown to you.
+   - `note-today`, `note-top`, `note-check`, `note-list`, `note-done`, `note-forget` and `note-settings` always run locally. They only read or update your notes, so they need no interpretation. Bad arguments get a short error shown to you.
    - `note-edit` and `note-snooze` run locally when written with options (`note-edit 3 --due "friday 5pm"`) or a date the built-in rules can read (`note-snooze 3 tomorrow`, `3 days`).
    - `note-add` reads the date with the built-in rules (`parse.py`, no AI). A clear date, or no date-like words at all, is saved locally.
 4. Lets the prompt through to Claude only for a `note-add` the rules cannot be sure of, a `note-edit` or `note-snooze` written in plain words or with a date the rules cannot read: words like "end of next month" or "next month at 3pm" left unread, or two different dates in one note. Claude then reads the note and works out the date, as `/notemind:note-add` always has.

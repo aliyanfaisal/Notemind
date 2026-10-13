@@ -349,6 +349,23 @@ class NoteStore:
                 f"UPDATE notes SET {assignments} WHERE id = ?", [*columns.values(), note_id])
         return self.get(note_id)
 
+    def forget(self, *, note_id: Optional[int] = None, project: Optional[str] = None,
+               everything: bool = False, dry_run: bool = False) -> List[Dict]:
+        """Permanently delete one note, a project's notes, or every note. Returns the notes
+        that were (or, with dry_run, would be) deleted."""
+        if note_id is not None:
+            found = [self.get(note_id)]
+        elif project is not None:
+            found = [n for n in self.list(status=None) if n["project"] == project]
+        elif everything:
+            found = self.list(status=None)
+        else:
+            raise NoteError("Say what to forget: a note number, --project NAME or --all.")
+        if found and not dry_run:
+            with self.conn:
+                self.conn.executemany("DELETE FROM notes WHERE id = ?", [(n["id"],) for n in found])
+        return found
+
     def snooze(self, note_id: int, until: Optional[str]) -> Dict:
         """Hide an open note until a local date/time; until=None brings it back now."""
         note = self.get(note_id)

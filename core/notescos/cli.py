@@ -20,7 +20,7 @@ from .hooks import log_error, prompt_submit, session_start
 from .money import note_fields
 from .parse import ambiguity, needs_claude, parse_due
 from .redact import redact_note, redact_notes
-from .report import (format_alert_set, format_check, format_search, format_settings,
+from .report import (format_alert_set, format_check, format_forget, format_search, format_settings,
                      format_top)
 from .score import rank
 from .store import (ALERT_LEVELS, NOTE_TYPES, DateNotUnderstood, NoteError, NoteStore,
@@ -97,6 +97,13 @@ def build_parser() -> argparse.ArgumentParser:
     search.add_argument("question", nargs="+", help="the words to look for; use - to read them from stdin")
     search.add_argument("--limit", type=int, default=10)
     search.add_argument("--open", action="store_true", help="leave out finished notes")
+
+    forget = sub.add_parser("forget", help="permanently delete notes")
+    forget.add_argument("id", nargs="?", type=int, help="the note to delete")
+    forget.add_argument("--project", help="delete every note in this project")
+    forget.add_argument("--all", action="store_true", dest="everything", help="delete every note")
+    forget.add_argument("--yes", action="store_true",
+                        help="really delete (required for --project and --all)")
 
     sub.add_parser("check", help="overdue, due soon and follow-ups waiting too long")
 
@@ -297,6 +304,20 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                     found, _ = redact_notes(found)
                 print(json.dumps(found) if args.json else format_search(question, found, now),
                       file=out)
+            elif args.command == "forget":
+                chosen = [args.id is not None, args.project is not None, args.everything]
+                if sum(chosen) != 1:
+                    raise NoteError("Pick one: a note number, --project NAME or --all.")
+                what = (f"note #{args.id}" if args.id is not None
+                        else f"project {args.project}" if args.project is not None else "all notes")
+                # One note goes at once; a whole project or everything needs --yes.
+                confirmed = args.id is not None or args.yes
+                found = store.forget(note_id=args.id, project=args.project,
+                                     everything=args.everything, dry_run=not confirmed)
+                if args.redact:
+                    found, _ = redact_notes(found)
+                print(json.dumps({"deleted": confirmed, "notes": found}) if args.json
+                      else format_forget(found, what, confirmed), file=out)
             elif args.command in ("top", "check"):
                 notes = store.list()
                 if args.redact:

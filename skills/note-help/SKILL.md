@@ -18,6 +18,8 @@ Show the user this guide as is, formatted cleanly.
 | `/notemind:note-edit <number> [--due X] [--text X] [--priority N] [--alert L] [--project X]` or in words, `note-edit 3 move it to friday` | Change a note |
 | `/notemind:note-snooze <number> <when>` | Hide a note until later, e.g. `note-snooze 3 tomorrow` or `3 days` |
 | `/notemind:note-done <number>` | Mark a note finished |
+| `/notemind:note-forget <number> \| --project X \| --all` | Permanently delete notes (a project or everything is previewed first) |
+| `/notemind:note-tour` | A 2-minute guided tour |
 | `/notemind:note-settings [alert quiet\|normal\|loud]` | How much the startup banner shows |
 | `/notemind:note-help` | This guide |
 

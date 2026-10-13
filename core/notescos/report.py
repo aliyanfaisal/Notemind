@@ -70,6 +70,20 @@ def format_search(question: str, found: List[Dict], now: datetime) -> str:
     return "\n".join([f"### 🔍 {len(found)} match{'es' if len(found) != 1 else ''}", ""] + rows)
 
 
+def format_forget(found: List[Dict], what: str, deleted: bool) -> str:
+    """What note-forget deleted, or what it would delete and how to confirm."""
+    if not found:
+        return f"*Nothing to forget for {what}.*"
+    count = f"{len(found)} note{'s' if len(found) != 1 else ''}"
+    rows = [f"- **#{n['id']}** {_cell(n['text'])}" for n in found[:10]]
+    more = [f"- …and {len(found) - 10} more"] if len(found) > 10 else []
+    if deleted:
+        return "\n".join([f"🗑️ **Forgot {count}** ({what}). This cannot be undone.", ""] + rows + more)
+    return "\n".join(
+        [f"⚠️ **This would permanently delete {count}** ({what}):", ""] + rows + more
+        + ["", "Nothing was deleted. To go ahead, run the same command again with `--yes`."])
+
+
 def format_settings(config: Dict) -> str:
     current = config["alert_level"]
     rows = ["| Alert level | Startup banner shows |", "|---|---|"]
