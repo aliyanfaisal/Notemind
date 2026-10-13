@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Tuple
 
 from .brief import split_due, when_label
+from .money import format_amount
 
 # Every weight can be overridden under "weights" in ~/.notescos/config.json.
 DEFAULT_WEIGHTS: Dict[str, int] = {
@@ -13,7 +14,8 @@ DEFAULT_WEIGHTS: Dict[str, int] = {
     "due_today": 90, "due_tomorrow": 70, "due_in_3_days": 50, "due_in_7_days": 25,
     "priority": 20,  # per user priority level (1 to 3)
     "urgent": 30,  # a note marked --alert urgent
-    "type_money_owed": 15, "type_followup": 10, "type_waiting_on": 10, "type_task": 5,
+    "type_money_owed": 15, "type_money_due": 15, "amount_per_1000": 1, "amount_cap": 10,
+    "type_followup": 10, "type_waiting_on": 10, "type_task": 5,
     "stale_3_days": 15, "stale_7_days": 30,
 }
 FOLLOW_UP_TYPES = ("followup", "waiting_on")
@@ -65,6 +67,9 @@ def score_note(note: Dict, now: datetime, weights: Optional[Dict[str, int]] = No
         score += w["urgent"]
         why.append("urgent")
     score += w.get(f"type_{note['type']}", 0)
+    if note["type"] in ("money_owed", "money_due") and note.get("amount"):
+        score += min(int(note["amount"] / 1000 * w["amount_per_1000"]), w["amount_cap"])
+        why.append(format_amount(note["amount"], note["currency"]))
     waiting = stale_days(note, now)
     if waiting is not None:
         score += w["stale_7_days"] if waiting >= 7 else w["stale_3_days"]

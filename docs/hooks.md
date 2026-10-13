@@ -8,7 +8,7 @@ Installing the plugin adds these, all inside the plugin folder Claude Code manag
 
 | What | Where |
 |---|---|
-| The `/notemind:note-add`, `note-top`, `note-check`, `note-settings`, `note-today`, `note-list`, `note-edit`, `note-snooze`, `note-done`, `note-board` and `note-help` commands | `skills/` |
+| The `/notemind:note-add`, `note-top`, `note-check`, `note-settings`, `note-today`, `note-list`, `note-edit`, `note-snooze`, `note-done`, `note-ask`, `note-board` and `note-help` commands | `skills/` |
 | One `SessionStart` hook and one `UserPromptSubmit` hook | `hooks/hooks.json` |
 | Your settings, only if you change them (`note-settings`) | `~/.notescos/config.json` |
 | A small launcher that runs the bundled Python code | `scripts/notescos` |
@@ -52,7 +52,7 @@ Registered command:
 Its job is to keep your notes out of the model whenever Notemind can do the work itself. Claude Code runs it before each prompt you send, and it:
 
 1. Reads the JSON message on stdin and looks only at the `prompt` field.
-2. Does nothing unless the prompt starts with `/note-add`, `/note-today`, `/note-top`, `/note-check`, `/note-list`, `/note-done`, `/note-edit`, `/note-snooze` or `/note-settings` (with or without the `notemind:` prefix). Every other prompt is ignored, not stored and not logged.
+2. Does nothing unless the prompt starts with `/note-add`, `/note-today`, `/note-top`, `/note-check`, `/note-list`, `/note-done`, `/note-edit`, `/note-snooze` or `/note-settings` (with or without the `notemind:` prefix), or with `#note `. Every other prompt is ignored, not stored and not logged.
 3. Handles the command itself and **blocks the prompt**, so Claude never sees it and no model call is made:
    - `note-today`, `note-top`, `note-check`, `note-list`, `note-done` and `note-settings` always run locally. They only read or update your notes, so they need no interpretation. Bad arguments get a short error shown to you.
    - `note-edit` and `note-snooze` run locally when written with options (`note-edit 3 --due "friday 5pm"`) or a date the built-in rules can read (`note-snooze 3 tomorrow`, `3 days`).
@@ -76,14 +76,18 @@ Your stored notes are not changed. The prompt hook also refuses to pass a `note-
 
 Detection is not exhaustive. See the README for what it covers and what it cannot catch.
 
-## Why there is no `#note` shortcut
+## The `#note` shortcut and its catch
 
-A message like `#note call Ali tomorrow at 3pm` would be easy to save from a hook. It is left out on purpose. Claude Code names each session with a small model, from your first message, and it does this even when a hook blocks that message. Slash commands such as `/note-add` are not named this way, so they stay private. Plain text such as `#note …` is, so the note would be sent to Claude's naming model, and sensitive data would not be masked first. Use `/notemind:note-add` instead.
+A prompt that starts with `#note ` (for example `#note call Ali tomorrow at 3pm`) is saved by the hook with the built-in date rules, and the prompt is blocked so no model call reads it. If the date cannot be read, the note is saved without one.
+
+There is one catch the hook cannot fix. Claude Code names each session with a small model, from your first message, and it does this even when a hook blocks that message. Slash commands such as `/note-add` are not named this way, so they stay private. Plain text such as `#note …` is, so if it is the first message of a session, its text is sent to Claude's naming model, and sensitive data is not masked first. Use `#note` for harmless quick notes and `/notemind:note-add` for anything private.
 
 ## What still goes through Claude
 
 Notes are stored only on your computer and Notemind makes no network calls of its own. Claude still sees note text in these cases, like anything else in a Claude Code session:
 - a `note-add`, `note-edit` or `note-snooze` whose date the rules could not read, or a `note-edit` written in plain words;
+- `note-ask`, which searches locally but gives Claude the matching notes (sensitive data masked) so it can answer;
+- a `#note` typed as the first message of a session (see above);
 - the startup banner, because your overdue notes are given to Claude as context;
 - `note-board`, which Claude runs. Its Claude artifact option asks first, then publishes a private copy of your notes to claude.ai.
 

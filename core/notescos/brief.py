@@ -6,6 +6,8 @@ from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Optional, Tuple
 
+from .money import format_amount, totals
+
 
 def split_due(due_at: str) -> Tuple[date, Optional[time]]:
     """'2026-10-09' -> (date, None); '2026-10-09T15:00' -> (date, time)."""
@@ -27,12 +29,13 @@ class Brief:
     upcoming: List[Dict]
     undated: List[Dict]
     unconfirmed: List[Dict] = field(default_factory=list)  # waiting for the user's answer
+    money: List[Dict] = field(default_factory=list)  # open money notes, whenever they fall due
 
     def as_dict(self) -> Dict[str, List[Dict]]:
         return {
             "overdue": self.overdue, "due_today": self.due_today,
             "upcoming": self.upcoming, "undated": self.undated,
-            "needs_input": self.unconfirmed,
+            "needs_input": self.unconfirmed, "money": self.money,
         }
 
     @property
@@ -47,7 +50,7 @@ def build_brief(
     """Sort open notes into overdue / today / upcoming (within the horizon) / undated."""
     today = now.date()
     last_day = today + timedelta(days=horizon_days)
-    overdue, due_today, upcoming, undated, unconfirmed = [], [], [], [], []
+    overdue, due_today, upcoming, undated, unconfirmed, money = [], [], [], [], [], []
     for note in notes:
         if note["status"] != "open":
             continue
@@ -56,6 +59,8 @@ def build_brief(
             continue
         if skip_silent and note["alert_level"] == "silent":
             continue
+        if note["type"] in MONEY_TYPES:
+            money.append(note)
         if not note["due_at"]:
             undated.append(note)
             continue
@@ -68,7 +73,7 @@ def build_brief(
             upcoming.append(note)
     for group in (overdue, due_today, upcoming):
         group.sort(key=_sort_key)
-    return Brief(overdue, due_today, upcoming, undated, unconfirmed)
+    return Brief(overdue, due_today, upcoming, undated, unconfirmed, money)
 
 
 def when_label(note: Dict, now: datetime) -> str:
@@ -118,6 +123,27 @@ def needs_input_lines(unconfirmed: List[Dict]) -> List[str]:
                 f"Use `note-edit <number> --confirm`, or give a date."]
 
 
+def money_lines(money: List[Dict], now: datetime) -> List[str]:
+    """Who owes you and what you owe, with totals per currency. Empty when there is none."""
+    if not money:
+        return []
+    ordered = sorted(money, key=lambda n: (n["type"] != "money_owed", n["due_at"] is None,
+                                           n["due_at"] or "", n["id"]))
+    rows = ["| | Note | Amount | When |", "|:-:|---|--:|---|"]
+    for n in ordered:
+        icon = "💰" if n["type"] == "money_owed" else "💸"
+        when = when_label(n, now) if n["due_at"] else ""
+        rows.append(f"| {icon} | **#{n['id']}** {_cell(n['text'], 50)} | "
+                    f"{format_amount(n.get('amount'), n.get('currency')) or '?'} | {when} |")
+    summary = []
+    for kind, label in (("money_owed", "Owed to you"), ("money_due", "You owe")):
+        parts = [format_amount(v, c) for c, v in totals(money, kind).items()]
+        if parts:
+            summary.append(f"**{label}:** {' + '.join(parts)}")
+    tail = ["", " · ".join(summary)] if summary else []
+    return ["**💵 Money**", ""] + rows + tail + [""]
+
+
 def format_today(brief: Brief, now: datetime) -> str:
     """Markdown view behind note-today: only what is overdue or due today."""
     lines = [f"### 📌 Today · {now:%a} {now.day} {now:%b}", ""]
@@ -129,6 +155,9 @@ def format_today(brief: Brief, now: datetime) -> str:
     if brief.due_today:
         lines += [f"**🟠 Due today ({len(brief.due_today)})**", ""]
         lines += _table(brief.due_today, now, "When") + [""]
+    if brief.money and lines[-1]:
+        lines.append("")
+    lines += money_lines(brief.money, now)
     more = []
     if brief.upcoming:
         more.append(f"{len(brief.upcoming)} coming up")
@@ -163,10 +192,24 @@ def format_list(notes: List[Dict], now: datetime, show_done: bool = False) -> st
     return "\n".join([head, ""] + rows)
 
 
+MONEY_TYPES = ("money_owed", "money_due")
+
+
+def money_line(note: Dict) -> str:
+    """One line about the money in a note, e.g. '💰 **Ali owes you** 15,000 PKR'."""
+    amount = format_amount(note.get("amount"), note.get("currency")) or "an amount not given"
+    who = note.get("person")
+    if note["type"] == "money_owed":
+        return f"💰 **{who + ' owes' if who else 'Owed to'} you** {amount}"
+    return f"💸 **You owe{' ' + who if who else ''}** {amount}"
+
+
 def format_saved(note: Dict, assumptions: List[str]) -> str:
     """Markdown confirmation after note-add."""
     lines = [f"✅ **Saved** · #{note['id']} {note['text']}", ""]
     lines.append(f"📅 **Due:** {due_label(note)}" if note["due_at"] else "🗒️ **No due date**")
+    if note["type"] in MONEY_TYPES:
+        lines += ["", money_line(note)]
     for item in assumptions:
         lines += ["", f"> ⚠️ {item}"]
     if not note["confirmed"]:
@@ -188,7 +231,7 @@ def format_snoozed(note: Dict) -> str:
 
 _EDIT_LABELS = (
     ("text", "Note"), ("type", "Type"), ("due_at", "Due"), ("priority", "Priority"),
-    ("alert_level", "Alert"), ("confirmed", "Confirmed"), ("person", "Person"), ("project", "Project"), ("tags", "Tags"),
+    ("alert_level", "Alert"), ("amount", "Amount"), ("currency", "Currency"), ("confirmed", "Confirmed"), ("person", "Person"), ("project", "Project"), ("tags", "Tags"),
 )
 
 

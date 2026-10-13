@@ -14,8 +14,8 @@ NOTE_TYPES = (
     "task",
     "followup",
     "waiting_on",
-    "money_owed",  # reserved: exposed in M3
-    "money_due",  # reserved: exposed in M3
+    "money_owed",  # someone owes you
+    "money_due",  # you owe someone
     "decision",
     "idea",
     "reference",
@@ -180,6 +180,8 @@ class NoteStore:
         priority: int = 0,
         alert_level: str = "normal",
         person: Optional[str] = None,
+        amount: Optional[float] = None,
+        currency: Optional[str] = None,
         project: Optional[str] = None,
         branch: Optional[str] = None,
         tags: Optional[List[str]] = None,
@@ -203,10 +205,11 @@ class NoteStore:
         with self.conn:
             cur = self.conn.execute(
                 """INSERT INTO notes (text, type, due_at, priority, alert_level, person,
-                       project, branch, tags, source, source_ref, confirmed,
+                       amount, currency, project, branch, tags, source, source_ref, confirmed,
                        created_at, updated_at)
-                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-                (text, type, due_at, priority, alert_level, person, project, branch,
+                   VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+                (text, type, due_at, priority, alert_level, person, amount,
+                 (currency or "").upper() or None, project, branch,
                  json.dumps(tags or []), source, source_ref, int(confirmed), now, now),
             )
         return self.get(cur.lastrowid)
@@ -294,7 +297,7 @@ class NoteStore:
 
     # Fields note-edit may change. None clears due, person and project.
     _EDITABLE = ("text", "type", "due", "priority", "alert_level", "person", "project", "tags",
-                 "confirmed")
+                 "confirmed", "amount", "currency")
 
     def update(self, note_id: int, **changes) -> Dict:
         """Change the given fields of a note; fields not passed are left alone."""
@@ -329,6 +332,12 @@ class NoteStore:
         for name in ("person", "project"):
             if name in changes:
                 columns[name] = (changes[name] or "").strip() or None
+        if "amount" in changes:
+            if changes["amount"] is not None and changes["amount"] < 0:
+                raise NoteError("An amount cannot be negative.")
+            columns["amount"] = changes["amount"]
+        if "currency" in changes:
+            columns["currency"] = (changes["currency"] or "").strip().upper() or None
         if "tags" in changes:
             columns["tags"] = json.dumps(changes["tags"] or [])
         if not columns:

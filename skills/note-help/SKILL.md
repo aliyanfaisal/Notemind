@@ -23,6 +23,7 @@ Show the user this guide as is, formatted cleanly.
 
 **Examples**
 - `/notemind:note-add call Sara on 22 sep`
+- `/notemind:note-add Ali owes me 15k PKR, due Friday` (money is tracked in note-today and note-check)
 - `/notemind:note-add send the invoice tomorrow at 3pm`
 - `/notemind:note-add renew the domain next friday`
 - `/notemind:note-edit 3 --due "friday 5pm" --priority 2`

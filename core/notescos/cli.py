@@ -17,6 +17,7 @@ from .brief import (build_brief, format_done, format_edited, format_list, format
                     format_snoozed, format_today)
 from . import settings as user_settings
 from .hooks import log_error, prompt_submit, session_start
+from .money import note_fields
 from .parse import ambiguity, needs_claude, parse_due
 from .redact import redact_note, redact_notes
 from .report import (format_alert_set, format_check, format_search, format_settings,
@@ -40,8 +41,10 @@ def build_parser() -> argparse.ArgumentParser:
     add = sub.add_parser("add", help="add a note")
     add.add_argument("text", nargs="+",
                      help="the note text; use - to read it from stdin (safe for quotes and symbols)")
-    add.add_argument("--type", choices=[t for t in NOTE_TYPES if not t.startswith("money_")],
-                     default="task")
+    add.add_argument("--type", choices=NOTE_TYPES,
+                     help="default: task, or money_owed / money_due when the text says who owes whom")
+    add.add_argument("--amount", type=float, help="money amount; read from the text when not given")
+    add.add_argument("--currency", help="e.g. USD, PKR; read from the text when not given")
     add.add_argument("--due", help="exact due date: YYYY-MM-DD or YYYY-MM-DDTHH:MM, or 'none' for no date. "
                           "Without it, the date is read from the note text.")
     add.add_argument("--priority", type=int, choices=[0, 1, 2, 3], default=0)
@@ -75,7 +78,9 @@ def build_parser() -> argparse.ArgumentParser:
     edit.add_argument("id", type=int)
     edit.add_argument("--text", help="new note text; use - to read it from stdin")
     edit.add_argument("--due", help="new due date in words or YYYY-MM-DD[THH:MM]; 'none' removes it")
-    edit.add_argument("--type", choices=[t for t in NOTE_TYPES if not t.startswith("money_")])
+    edit.add_argument("--type", choices=NOTE_TYPES)
+    edit.add_argument("--amount", type=float, help="money amount; 0 or negative values are rejected")
+    edit.add_argument("--currency", help="e.g. USD, PKR; 'none' removes it")
     edit.add_argument("--priority", type=int, choices=[0, 1, 2, 3])
     edit.add_argument("--confirm", action="store_true",
                       help="accept the note as it is, so it can alert")
@@ -187,11 +192,17 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                     due = found.due if found else args.due
                 # A date that came from the user's words, not an explicit --due, may be a guess.
                 unclear = None if args.due else ambiguity(text, found, args.type)
+                money = note_fields(text)  # who owes whom, read from the words
+                if args.type:
+                    money.pop("type", None)
+                fields = {"type": args.type or "task", **money}
+                for key, value in (("amount", args.amount), ("currency", args.currency),
+                                   ("person", args.person)):
+                    if value is not None:
+                        fields[key] = value
                 note = store.add(
-                    text, type=args.type, due=due,
-                    priority=args.priority, alert_level=args.alert_level,
-                    person=args.person, project=args.project, tags=args.tags,
-                    confirmed=unclear is None,
+                    text, due=due, priority=args.priority, alert_level=args.alert_level,
+                    project=args.project, tags=args.tags, confirmed=unclear is None, **fields,
                 )
                 assumptions = found.assumptions if found else []
                 if args.redact:
@@ -243,6 +254,10 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                     changes["type"] = args.type
                 if args.priority is not None:
                     changes["priority"] = args.priority
+                if args.amount is not None:
+                    changes["amount"] = args.amount
+                if args.currency is not None:
+                    changes["currency"] = None if args.currency.lower() == "none" else args.currency
                 if args.alert_level is not None:
                     changes["alert_level"] = args.alert_level
                 for name in ("person", "project"):
@@ -255,7 +270,7 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                     changes["confirmed"] = True
                 if not changes:
                     raise NoteError("Nothing to change. Use --text, --due, --priority, --alert, "
-                                    "--type, --person, --project, --tag or --confirm.")
+                                    "--type, --amount, --currency, --person, --project, --tag or --confirm.")
                 old = store.get(args.id)
                 new = store.update(args.id, **changes)
                 if args.redact:
