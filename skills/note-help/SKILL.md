@@ -12,6 +12,7 @@ Show the user this guide as is, formatted cleanly.
 | `/notemind:note-today` | Overdue, due today and coming up in the next 7 days |
 | `/notemind:note-top [N]` | The notes that matter most right now, with the reason for each |
 | `/notemind:note-check` | Full check: overdue, due soon, follow-ups waiting too long |
+| `/notemind:note-ask <question>` | Ask about your notes, e.g. `note-ask what is pending for Ali?`. Answers cite note numbers. |
 | `/notemind:note-list [--all] [--project X] [--type T] [--from DATE] [--to DATE] [--overdue]` | Browse your notes |
 | `/notemind:note-board [overdue \| due \| next 2 days \| 22 sep]` | Show your notes as a visual board (private Claude artifact or local file) |
 | `/notemind:note-edit <number> [--due X] [--text X] [--priority N] [--alert L] [--project X]` or in words, `note-edit 3 move it to friday` | Change a note |

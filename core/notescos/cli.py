@@ -19,7 +19,8 @@ from . import settings as user_settings
 from .hooks import log_error, prompt_submit, session_start
 from .parse import ambiguity, needs_claude, parse_due
 from .redact import redact_note, redact_notes
-from .report import format_alert_set, format_check, format_settings, format_top
+from .report import (format_alert_set, format_check, format_search, format_settings,
+                     format_top)
 from .score import rank
 from .store import (ALERT_LEVELS, NOTE_TYPES, DateNotUnderstood, NoteError, NoteStore,
                     default_home)
@@ -86,6 +87,11 @@ def build_parser() -> argparse.ArgumentParser:
 
     top = sub.add_parser("top", help="the notes that matter most right now")
     top.add_argument("count", nargs="?", type=int, default=5)
+
+    search = sub.add_parser("search", help="find notes that match a question")
+    search.add_argument("question", nargs="+", help="the words to look for; use - to read them from stdin")
+    search.add_argument("--limit", type=int, default=10)
+    search.add_argument("--open", action="store_true", help="leave out finished notes")
 
     sub.add_parser("check", help="overdue, due soon and follow-ups waiting too long")
 
@@ -267,6 +273,15 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                 if args.redact:
                     note, _ = redact_note(note)
                 print(json.dumps(note) if args.json else format_snoozed(note), file=out)
+            elif args.command == "search":
+                question = " ".join(args.question)
+                if args.question == ["-"]:
+                    question = " ".join(sys.stdin.read().split())
+                found = store.search(question, limit=max(1, args.limit), include_done=not args.open)
+                if args.redact:
+                    found, _ = redact_notes(found)
+                print(json.dumps(found) if args.json else format_search(question, found, now),
+                      file=out)
             elif args.command in ("top", "check"):
                 notes = store.list()
                 if args.redact:

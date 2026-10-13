@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, List
 
-from .brief import _cell, _table, build_brief, needs_input_lines, when_label
+from .brief import _cell, _table, build_brief, due_label, needs_input_lines, when_label
 from .score import is_alertable, rank, stale_days
 from .settings import ALERT_LEVELS
 
@@ -53,6 +53,20 @@ def format_check(notes: List[Dict], now: datetime) -> str:
         lines += [f"| **#{n['id']}** {_cell(n['text'])} | {days} days |" for days, n in waiting] + [""]
     lines += needs_input_lines(unclear)
     return "\n".join(lines).rstrip()
+
+
+def format_search(question: str, found: List[Dict], now: datetime) -> str:
+    """Markdown table of the notes that matched a question, with their ids to cite."""
+    if not found:
+        return f"*No notes match “{question}”.*"
+    rows = ["| Note | Status | Due |", "|---|---|---|"]
+    for n in found:
+        status = "✅ done" if n["status"] == "done" else (
+            "💤 snoozed" if n["status"] == "snoozed" else "open")
+        due = when_label(n, now) if n["due_at"] and n["status"] == "open" else (
+            due_label(n) if n["due_at"] else "")
+        rows.append(f"| **#{n['id']}** {_cell(n['text'])} | {status} | {due} |")
+    return "\n".join([f"### 🔍 {len(found)} match{'es' if len(found) != 1 else ''}", ""] + rows)
 
 
 def format_settings(config: Dict) -> str:

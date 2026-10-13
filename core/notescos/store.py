@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -57,7 +58,35 @@ MIGRATIONS = [
     CREATE INDEX idx_notes_due_at ON notes (due_at);
     CREATE INDEX idx_notes_project ON notes (project);
     """,
+    # Full-text search over the words a person would ask about. Optional: see _migrate.
+    """
+    CREATE VIRTUAL TABLE notes_fts USING fts5(
+        text, person, project, tags, content='notes', content_rowid='id');
+    INSERT INTO notes_fts (rowid, text, person, project, tags)
+        SELECT id, text, person, project, tags FROM notes;
+    CREATE TRIGGER notes_fts_insert AFTER INSERT ON notes BEGIN
+        INSERT INTO notes_fts (rowid, text, person, project, tags)
+        VALUES (new.id, new.text, new.person, new.project, new.tags);
+    END;
+    CREATE TRIGGER notes_fts_delete AFTER DELETE ON notes BEGIN
+        INSERT INTO notes_fts (notes_fts, rowid, text, person, project, tags)
+        VALUES ('delete', old.id, old.text, old.person, old.project, old.tags);
+    END;
+    CREATE TRIGGER notes_fts_update AFTER UPDATE OF text, person, project, tags ON notes BEGIN
+        INSERT INTO notes_fts (notes_fts, rowid, text, person, project, tags)
+        VALUES ('delete', old.id, old.text, old.person, old.project, old.tags);
+        INSERT INTO notes_fts (rowid, text, person, project, tags)
+        VALUES (new.id, new.text, new.person, new.project, new.tags);
+    END;
+    """,
 ]
+FTS_MIGRATION = 2  # the number (1-based) of the entry above
+
+# Words that say nothing about which note is meant.
+STOP_WORDS = frozenset(
+    "a an and are about all any did do does for from had has have how i in is it me my "
+    "of on or the to was what when where which who whom why with you your".split()
+)
 
 
 class NoteError(Exception):
@@ -122,9 +151,19 @@ class NoteStore:
                 "Upgrade notescos."
             )
         for number in range(version, len(MIGRATIONS)):
-            with self.conn:
-                self.conn.executescript("BEGIN;" + MIGRATIONS[number])
+            try:
+                with self.conn:
+                    self.conn.executescript("BEGIN;" + MIGRATIONS[number])
+                    self.conn.execute(f"PRAGMA user_version = {number + 1}")
+            except sqlite3.OperationalError:
+                # Some Python builds ship SQLite without FTS5. Search then falls back to
+                # plain matching, so this one migration is allowed to be skipped.
+                if number + 1 != FTS_MIGRATION:
+                    raise
+                self.conn.rollback()
                 self.conn.execute(f"PRAGMA user_version = {number + 1}")
+        self.has_fts = self.conn.execute(
+            "SELECT 1 FROM sqlite_master WHERE name = 'notes_fts'").fetchone() is not None
 
     @staticmethod
     def _row(row: sqlite3.Row) -> Dict:
@@ -208,6 +247,36 @@ class NoteStore:
         rows = self.conn.execute(
             f"SELECT * FROM notes {where} ORDER BY due_at IS NULL, due_at, id", params
         ).fetchall()
+        return [self._row(r) for r in rows]
+
+    def search(self, question: str, *, limit: int = 10, include_done: bool = True) -> List[Dict]:
+        """Notes that match the words of a question, best match first.
+
+        Every word counts on its own (any of them may match) and may be the start of a
+        longer word, so "invoic" finds "invoice". Each result has a "rank" (lower is better).
+        """
+        words = [w[:-1] if len(w) > 3 and w.endswith("s") else w  # "invoices" -> "invoice"
+                 for w in re.findall(r"\w+", question.lower())
+                 if w not in STOP_WORDS and len(w) > 1]
+        if not words:
+            return []
+        status = "" if include_done else "AND n.status != 'done'"
+        if self.has_fts:
+            match = " OR ".join(f'"{w}"*' for w in words)
+            rows = self.conn.execute(
+                f"""SELECT n.*, bm25(notes_fts) AS rank FROM notes_fts
+                    JOIN notes n ON n.id = notes_fts.rowid
+                    WHERE notes_fts MATCH ? {status}
+                    ORDER BY rank, n.id LIMIT ?""", (match, limit)).fetchall()
+        else:
+            haystack = "lower(n.text || ' ' || coalesce(n.person,'') || ' ' || coalesce(n.project,'')"
+            haystack += " || ' ' || n.tags)"
+            hits = " + ".join(f"({haystack} LIKE ?)" for _ in words)
+            rows = self.conn.execute(
+                f"""SELECT n.*, -({hits}) AS rank FROM notes n
+                    WHERE ({hits}) > 0 {status}
+                    ORDER BY rank, n.id LIMIT ?""",
+                [f"%{w}%" for w in words] * 2 + [limit]).fetchall()
         return [self._row(r) for r in rows]
 
     def done(self, note_id: int) -> Dict:
