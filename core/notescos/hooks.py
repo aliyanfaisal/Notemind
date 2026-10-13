@@ -90,6 +90,8 @@ def session_start(stdin_text: str, now: datetime, home: Optional[Path] = None) -
     }
 
 
+# `#note call Sara friday 3pm`: quick capture that never reaches Claude.
+INLINE_NOTE_RE = re.compile(r"^\s*#note\s+(.+)$", re.DOTALL | re.IGNORECASE)
 COMMAND_RE = re.compile(
     r"^\s*/(?:notemind:)?(note-add|note-today|note-list|note-done|note-edit|note-snooze"
     r"|note-top|note-check|note-settings)(?:\s+(.*))?$",
@@ -119,6 +121,10 @@ def prompt_submit(stdin_text: str, now: datetime, home: Optional[Path] = None) -
         return None
     if not isinstance(prompt, str):
         return None
+    inline = INLINE_NOTE_RE.match(prompt)
+    if inline:
+        text = " ".join(inline.group(1).split())
+        return _block(_add_inline(text, now, home or default_home())) if text else None
     match = COMMAND_RE.match(prompt)
     if not match:
         return None
@@ -128,7 +134,26 @@ def prompt_submit(stdin_text: str, now: datetime, home: Optional[Path] = None) -
         reason = _add_locally(" ".join(rest.split()), now, home)
     else:
         reason = _run_locally(LOCAL_COMMANDS[name], rest, now, home)
+    return _block(reason)
+
+
+def _block(reason: Optional[str]) -> Optional[Dict]:
     return {"decision": "block", "reason": reason} if reason else None
+
+
+def _add_inline(text: str, now: datetime, home: Path) -> str:
+    """`#note <text>`: always saved here, with no call to Claude. A date the built-in rules
+    cannot read is not guessed; the note is saved without one and the user is told."""
+    saved = _add_locally(text, now, home)
+    if saved:
+        return saved
+    with NoteStore(home / "notes.db") as store:
+        note = store.add(text)
+    return (
+        format_saved(note, [])
+        + "\n\n*Saved without a date because it could not be read on its own. "
+        "Set one with `/notemind:note-edit`.*"
+    )
 
 
 def _add_locally(text: str, now: datetime, home: Path) -> Optional[str]:
