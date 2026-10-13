@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
 from typing import Dict, List, Optional, Tuple
 
@@ -26,11 +26,13 @@ class Brief:
     due_today: List[Dict]
     upcoming: List[Dict]
     undated: List[Dict]
+    unconfirmed: List[Dict] = field(default_factory=list)  # waiting for the user's answer
 
     def as_dict(self) -> Dict[str, List[Dict]]:
         return {
             "overdue": self.overdue, "due_today": self.due_today,
             "upcoming": self.upcoming, "undated": self.undated,
+            "needs_input": self.unconfirmed,
         }
 
     @property
@@ -45,9 +47,12 @@ def build_brief(
     """Sort open notes into overdue / today / upcoming (within the horizon) / undated."""
     today = now.date()
     last_day = today + timedelta(days=horizon_days)
-    overdue, due_today, upcoming, undated = [], [], [], []
+    overdue, due_today, upcoming, undated, unconfirmed = [], [], [], [], []
     for note in notes:
         if note["status"] != "open":
+            continue
+        if not note["confirmed"]:
+            unconfirmed.append(note)
             continue
         if skip_silent and note["alert_level"] == "silent":
             continue
@@ -63,7 +68,7 @@ def build_brief(
             upcoming.append(note)
     for group in (overdue, due_today, upcoming):
         group.sort(key=_sort_key)
-    return Brief(overdue, due_today, upcoming, undated)
+    return Brief(overdue, due_today, upcoming, undated, unconfirmed)
 
 
 def when_label(note: Dict, now: datetime) -> str:
@@ -102,6 +107,17 @@ def _table(notes: List[Dict], now: datetime, last: str) -> List[str]:
     return rows
 
 
+def needs_input_lines(unconfirmed: List[Dict]) -> List[str]:
+    """Markdown lines asking the user about notes whose date is still unclear."""
+    if not unconfirmed:
+        return []
+    ids = ", ".join(f"#{n['id']}" for n in unconfirmed)
+    plural = "s" if len(unconfirmed) != 1 else ""
+    return ["", f"> ❓ **{len(unconfirmed)} note{plural} need{'' if plural else 's'} your input** ({ids}). "
+                f"Their date is unclear, so they will not alert until you confirm. "
+                f"Use `note-edit <number> --confirm`, or give a date."]
+
+
 def format_today(brief: Brief, now: datetime) -> str:
     """Markdown view behind note-today: only what is overdue or due today."""
     lines = [f"### 📌 Today · {now:%a} {now.day} {now:%b}", ""]
@@ -120,6 +136,7 @@ def format_today(brief: Brief, now: datetime) -> str:
         more.append(f"{len(brief.undated)} without a date")
     if more:
         lines.append(f"*{' · '.join(more)}. See `note-list`.*")
+    lines += needs_input_lines(brief.unconfirmed)
     return "\n".join(lines).rstrip()
 
 
@@ -152,6 +169,9 @@ def format_saved(note: Dict, assumptions: List[str]) -> str:
     lines.append(f"📅 **Due:** {due_label(note)}" if note["due_at"] else "🗒️ **No due date**")
     for item in assumptions:
         lines += ["", f"> ⚠️ {item}"]
+    if not note["confirmed"]:
+        lines += ["", f"> ❓ **Needs your input.** This will not alert until you confirm it: "
+                      f"`note-edit {note['id']} --confirm`, or give it a date with `--due`."]
     return "\n".join(lines)
 
 
@@ -168,7 +188,7 @@ def format_snoozed(note: Dict) -> str:
 
 _EDIT_LABELS = (
     ("text", "Note"), ("type", "Type"), ("due_at", "Due"), ("priority", "Priority"),
-    ("alert_level", "Alert"), ("person", "Person"), ("project", "Project"), ("tags", "Tags"),
+    ("alert_level", "Alert"), ("confirmed", "Confirmed"), ("person", "Person"), ("project", "Project"), ("tags", "Tags"),
 )
 
 
@@ -179,6 +199,8 @@ def _edit_value(field: str, value) -> str:
         return stamp_label(value)
     if field == "tags":
         return ", ".join(value)
+    if field == "confirmed":
+        return "yes" if value else "no, needs your input"
     return str(value).replace("_", " ") if field == "type" else str(value)
 
 

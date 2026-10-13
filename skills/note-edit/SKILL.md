@@ -20,6 +20,7 @@ Current date and time on the user's machine (use it to resolve dates):
    - new text: `--text -` with the text on stdin (see below), exactly as the user wrote it
    - due date: `--due <YYYY-MM-DD or YYYY-MM-DDTHH:MM>` worked out from the current date and time above, or `--due none` to remove the date. Never invent a date the request does not imply.
    - `--priority 0|1|2|3`, `--alert normal|urgent|silent`, `--type task|followup|waiting_on|decision|idea|reference`
+   - `--confirm` when the user accepts a note that was waiting for their input as it is (giving a new `--due` also confirms it)
    - `--person NAME`, `--project NAME` (`none` removes them), `--tag TAG` (repeat for several; this replaces all tags, `--tag none` clears them)
 3. Run it. Changing the text does not change the due date; to move the date too, add `--due`.
 

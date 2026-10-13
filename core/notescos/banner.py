@@ -50,12 +50,15 @@ def build_banner(notes: List[Dict], now: datetime, level: str = "normal",
                  markdown: bool = False, max_items: int = 4) -> str:
     """The banner text, or an empty string when nothing needs attention."""
     overdue, today, soon, waiting = _select(notes, now, level)
+    unclear = sum(1 for n in notes if n["status"] == "open" and not n["confirmed"])
     rows: List[Tuple[str, Dict]] = (
         [("!", n) for n in overdue] + [("•", n) for n in today] + [("→", n) for n in soon]
     )
-    if not rows and not waiting:
+    if not rows and not waiting and not unclear:
         return ""
     counts = _counts(overdue, today, soon, waiting)
+    if unclear:
+        counts = " · ".join(filter(None, [counts, f"{unclear} need your input"]))
     hidden = len(rows) - max_items
     if markdown:
         icons = {"!": "🔴", "•": "🟠", "→": "🔵"}

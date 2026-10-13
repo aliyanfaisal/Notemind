@@ -34,8 +34,9 @@ def stale_days(note: Dict, now: datetime, min_days: int = 3) -> Optional[int]:
 
 
 def is_alertable(note: Dict) -> bool:
-    """Open notes that are not marked silent. Snoozed, done and silent notes never alert."""
-    return note["status"] == "open" and note["alert_level"] != "silent"
+    """Open, confirmed notes that are not marked silent. Snoozed, done, silent and
+    still-unclear notes never alert."""
+    return note["status"] == "open" and note["alert_level"] != "silent" and bool(note["confirmed"])
 
 
 def score_note(note: Dict, now: datetime, weights: Optional[Dict[str, int]] = None) -> Tuple[int, str]:

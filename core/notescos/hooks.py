@@ -16,7 +16,7 @@ from typing import Dict, Optional
 from . import settings as user_settings
 from .banner import build_banner
 from .brief import build_brief, format_saved
-from .parse import needs_claude, parse_due
+from .parse import ambiguity, needs_claude, parse_due
 from .redact import find_sensitive, redact_notes
 from .store import NoteStore, default_home
 
@@ -175,7 +175,8 @@ def _add_locally(text: str, now: datetime, home: Path) -> Optional[str]:
             )
         return None
     with NoteStore(home / "notes.db") as store:
-        note = store.add(text, due=found.due if found else None)
+        note = store.add(text, due=found.due if found else None,
+                         confirmed=ambiguity(text, found) is None)
     return format_saved(note, found.assumptions if found else [])
 
 

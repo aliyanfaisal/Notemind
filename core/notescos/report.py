@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Dict, List
 
-from .brief import _cell, _table, build_brief, when_label
+from .brief import _cell, _table, build_brief, needs_input_lines, when_label
 from .score import is_alertable, rank, stale_days
 from .settings import ALERT_LEVELS
 
@@ -31,6 +31,7 @@ def format_top(ranked: List[Dict], count: int) -> str:
 def format_check(notes: List[Dict], now: datetime) -> str:
     """Overdue, due today, due soon, and follow-ups waiting too long."""
     live = [n for n in notes if is_alertable(n)]
+    unclear = [n for n in notes if n["status"] == "open" and not n["confirmed"]]
     brief = build_brief(live, now, horizon_days=2)
     shown = {n["id"] for n in brief.overdue + brief.due_today + brief.upcoming}
     waiting = sorted(
@@ -39,7 +40,8 @@ def format_check(notes: List[Dict], now: datetime) -> str:
     )
     lines = [f"### 🔎 Check · {now:%a} {now.day} {now:%b}", ""]
     if not (brief.overdue or brief.due_today or brief.upcoming or waiting):
-        return "\n".join(lines + ["✅ **All clear.** Nothing is overdue, due soon or waiting on a reply."])
+        clear = "✅ **All clear.** Nothing is overdue, due soon or waiting on a reply."
+        return "\n".join(lines + [clear] + needs_input_lines(unclear))
     for group, title, last in (
         (brief.overdue, "🔴 Overdue", "Was due"), (brief.due_today, "🟠 Due today", "When"),
         (brief.upcoming, "🔵 Due in the next 2 days", "When"),
@@ -49,6 +51,7 @@ def format_check(notes: List[Dict], now: datetime) -> str:
     if waiting:
         lines += [f"**⏳ Waiting on a reply ({len(waiting)})**", "", "| Note | Waiting |", "|---|---|"]
         lines += [f"| **#{n['id']}** {_cell(n['text'])} | {days} days |" for days, n in waiting] + [""]
+    lines += needs_input_lines(unclear)
     return "\n".join(lines).rstrip()
 
 

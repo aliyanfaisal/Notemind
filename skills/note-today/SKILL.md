@@ -7,4 +7,6 @@ Here is the user's overdue and due-today notes, produced just now by the tool as
 
 !`"${CLAUDE_PLUGIN_ROOT}/scripts/notescos" --redact today`
 
-Reply with that Markdown exactly as it is (same headings, tables and emoji), without rewording, adding or removing notes. Do not add an introduction. If something is overdue, you may end with one short line suggesting `note-done <number>`.
+Reply with that Markdown exactly as it is (same headings, tables and emoji), without rewording, adding or removing notes. Do not add an introduction, apart from the question below. If something is overdue, you may end with one short line suggesting `note-done <number>`.
+
+If the Markdown ends with a line saying notes "need your input", add one short question after it asking, for each such note, what date they meant (or whether to keep it as it is). When they answer, run `/notemind:note-edit` for that note with `--due <date>` or `--confirm`. Never guess the date for them.

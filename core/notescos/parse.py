@@ -265,6 +265,19 @@ DATE_CUE_RE = re.compile(
 )
 
 
+def ambiguity(text: str, parsed: Optional[ParsedDue], note_type: str = "task") -> Optional[str]:
+    """Why a note should wait for the user's answer before it can alert, or None.
+
+    A note is unclear when the date was a guess (a year, a time already past) or when a
+    follow-up has no date at all. Alerting on a guess would be worse than asking.
+    """
+    if parsed and parsed.assumptions:
+        return "; ".join(parsed.assumptions)
+    if note_type in ("followup", "waiting_on") and not parsed:
+        return "a follow-up needs a date, otherwise it can never come back to you"
+    return None
+
+
 def needs_claude(text: str, parsed: Optional[ParsedDue]) -> bool:
     """True when the rules cannot be trusted with this text and Claude should read it.
 

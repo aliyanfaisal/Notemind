@@ -224,7 +224,8 @@ class NoteStore:
         return self.get(note_id)
 
     # Fields note-edit may change. None clears due, person and project.
-    _EDITABLE = ("text", "type", "due", "priority", "alert_level", "person", "project", "tags")
+    _EDITABLE = ("text", "type", "due", "priority", "alert_level", "person", "project", "tags",
+                 "confirmed")
 
     def update(self, note_id: int, **changes) -> Dict:
         """Change the given fields of a note; fields not passed are left alone."""
@@ -244,6 +245,9 @@ class NoteStore:
             columns["type"] = changes["type"]
         if "due" in changes:
             columns["due_at"] = normalize_due(changes["due"]) if changes["due"] else None
+            columns["confirmed"] = 1  # the user just chose this date
+        if "confirmed" in changes:
+            columns["confirmed"] = int(bool(changes["confirmed"]))
         if "priority" in changes:
             if changes["priority"] not in (0, 1, 2, 3):
                 raise NoteError("Priority must be 0 (none), 1, 2 or 3.")

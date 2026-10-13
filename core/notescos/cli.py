@@ -17,7 +17,7 @@ from .brief import (build_brief, format_done, format_edited, format_list, format
                     format_snoozed, format_today)
 from . import settings as user_settings
 from .hooks import log_error, prompt_submit, session_start
-from .parse import needs_claude, parse_due
+from .parse import ambiguity, needs_claude, parse_due
 from .redact import redact_note, redact_notes
 from .report import format_alert_set, format_check, format_settings, format_top
 from .score import rank
@@ -76,6 +76,8 @@ def build_parser() -> argparse.ArgumentParser:
     edit.add_argument("--due", help="new due date in words or YYYY-MM-DD[THH:MM]; 'none' removes it")
     edit.add_argument("--type", choices=[t for t in NOTE_TYPES if not t.startswith("money_")])
     edit.add_argument("--priority", type=int, choices=[0, 1, 2, 3])
+    edit.add_argument("--confirm", action="store_true",
+                      help="accept the note as it is, so it can alert")
     edit.add_argument("--alert", choices=ALERT_LEVELS, dest="alert_level")
     edit.add_argument("--person", help="'none' removes it")
     edit.add_argument("--project", help="'none' removes it")
@@ -177,10 +179,13 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                 else:
                     found = parse_due(args.due or text, now, order)
                     due = found.due if found else args.due
+                # A date that came from the user's words, not an explicit --due, may be a guess.
+                unclear = None if args.due else ambiguity(text, found, args.type)
                 note = store.add(
                     text, type=args.type, due=due,
                     priority=args.priority, alert_level=args.alert_level,
                     person=args.person, project=args.project, tags=args.tags,
+                    confirmed=unclear is None,
                 )
                 assumptions = found.assumptions if found else []
                 if args.redact:
@@ -240,9 +245,11 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                         changes[name] = None if value.lower() == "none" else value
                 if args.tags is not None:
                     changes["tags"] = [] if [t.lower() for t in args.tags] == ["none"] else args.tags
+                if args.confirm:
+                    changes["confirmed"] = True
                 if not changes:
                     raise NoteError("Nothing to change. Use --text, --due, --priority, --alert, "
-                                    "--type, --person, --project or --tag.")
+                                    "--type, --person, --project, --tag or --confirm.")
                 old = store.get(args.id)
                 new = store.update(args.id, **changes)
                 if args.redact:
