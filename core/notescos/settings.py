@@ -9,7 +9,7 @@ from typing import Dict
 from .store import NoteError
 
 ALERT_LEVELS = ("quiet", "normal", "loud")  # how much the startup banner shows
-DEFAULTS = {"alert_level": "normal"}
+DEFAULTS = {"alert_level": "normal", "sync_projects": []}  # sync_projects: folders opted in to scanning
 
 
 def load(home: Path) -> Dict:
@@ -23,6 +23,22 @@ def load(home: Path) -> Dict:
         pass
     if config["alert_level"] not in ALERT_LEVELS:
         config["alert_level"] = DEFAULTS["alert_level"]
+    if not isinstance(config["sync_projects"], list):
+        config["sync_projects"] = []
+    return config
+
+
+def _save(home: Path, config: Dict) -> None:
+    home.mkdir(parents=True, exist_ok=True)
+    (home / "config.json").write_text(json.dumps(config, indent=2) + "\n")
+
+
+def set_sync(home: Path, project: str, enabled: bool) -> Dict:
+    """Opt a project folder in to (or out of) transcript scanning."""
+    config = load(home)
+    projects = [p for p in config["sync_projects"] if p != project]
+    config["sync_projects"] = projects + [project] if enabled else projects
+    _save(home, config)
     return config
 
 
@@ -32,6 +48,5 @@ def set_alert_level(home: Path, level: str) -> Dict:
         raise NoteError(f"Alert level must be one of: {', '.join(ALERT_LEVELS)}.")
     config = load(home)
     config["alert_level"] = level
-    home.mkdir(parents=True, exist_ok=True)
-    (home / "config.json").write_text(json.dumps(config, indent=2) + "\n")
+    _save(home, config)
     return config

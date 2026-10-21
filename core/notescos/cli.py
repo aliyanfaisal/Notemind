@@ -20,6 +20,7 @@ from .hooks import log_error, prompt_submit, session_start
 from .money import note_fields
 from .parse import ambiguity, needs_claude, parse_due
 from .redact import redact_note, redact_notes
+from . import scan as transcript_scan
 from .report import (format_alert_set, format_check, format_forget, format_search, format_settings,
                      format_top)
 from .score import rank
@@ -52,6 +53,10 @@ def build_parser() -> argparse.ArgumentParser:
     add.add_argument("--person")
     add.add_argument("--project")
     add.add_argument("--tag", action="append", dest="tags")
+    add.add_argument("--branch", help="git branch the note belongs to")
+    add.add_argument("--source", choices=["manual", "transcript"], default="manual",
+                     help="where the note came from; 'transcript' is for notes the user approved from sync")
+    add.add_argument("--source-ref", help="session id the note came from")
 
     ls = sub.add_parser("list", help="list notes")
     ls.add_argument("--all", action="store_true", help="include done notes")
@@ -104,6 +109,13 @@ def build_parser() -> argparse.ArgumentParser:
     forget.add_argument("--all", action="store_true", dest="everything", help="delete every note")
     forget.add_argument("--yes", action="store_true",
                         help="really delete (required for --project and --all)")
+
+    sync = sub.add_parser("sync", help="find commitments in your past session messages (opt-in)")
+    sync.add_argument("action", choices=["status", "enable", "disable", "scan", "mark"],
+                      help="enable/disable: opt this folder in or out; scan: show the messages you typed "
+                           "since the last review (masked, nothing saved); mark: finish the review")
+    sync.add_argument("--dir", help="project folder (default: the current folder)")
+    sync.add_argument("--limit", type=int, default=40, help="most messages to show (newest kept)")
 
     sub.add_parser("check", help="overdue, due soon and follow-ups waiting too long")
 
@@ -209,7 +221,8 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                         fields[key] = value
                 note = store.add(
                     text, due=due, priority=args.priority, alert_level=args.alert_level,
-                    project=args.project, tags=args.tags, confirmed=unclear is None, **fields,
+                    project=args.project, branch=args.branch, tags=args.tags,
+                    source=args.source, source_ref=args.source_ref, confirmed=unclear is None, **fields,
                 )
                 assumptions = found.assumptions if found else []
                 if args.redact:
@@ -339,6 +352,8 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
                     print(format_alert_set(level), file=out)
                 else:
                     print(format_settings(user_settings.load(home)), file=out)
+            elif args.command == "sync":
+                print(_run_sync(args, default_home()), file=out)
             elif args.command == "done":
                 note = store.done(args.id)
                 if args.redact:
@@ -353,6 +368,32 @@ def main(argv: Optional[List[str]] = None, out: Optional[TextIO] = None,
     if not getattr(args, "json", False) and in_sandbox():
         print(SANDBOX_WARNING, file=out)
     return 0
+
+
+def _run_sync(args, home: Path) -> str:
+    """Opt-in transcript scanning. Reads and masks your typed messages; never saves a note."""
+    folder = str(Path(args.dir or os.getcwd()).expanduser().resolve())
+    enabled = folder in user_settings.load(home)["sync_projects"]
+    if args.action == "enable":
+        user_settings.set_sync(home, folder, True)
+        enabled = True
+    elif args.action == "disable":
+        user_settings.set_sync(home, folder, False)
+        enabled = False
+    if args.action in ("enable", "disable", "status"):
+        return json.dumps({"enabled": enabled, "dir": folder}) if args.json else (
+            f"🔎 **Transcript scanning is {'on' if enabled else 'off'}** for `{folder}`." + (
+                "" if enabled else " Turn it on with `note-sync enable`."))
+    if not enabled:
+        raise NoteError("Scanning is off for this folder. Turn it on first with: note-sync enable")
+    if args.action == "mark":
+        moved = transcript_scan.mark_reviewed(home)
+        return json.dumps({"reviewed": moved}) if args.json else (
+            f"✅ **Review finished** · the next scan starts after these messages." if moved
+            else "Nothing to mark. Run a scan first.")
+    result = transcript_scan.scan(folder, home, max(0, args.limit))
+    transcript_scan.hold_for_review(home, result.pop("cursors"))
+    return json.dumps(result)
 
 
 def _run_hook(event: str, out: TextIO, now: datetime) -> int:

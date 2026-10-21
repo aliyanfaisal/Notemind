@@ -19,6 +19,7 @@ Show the user this guide as is, formatted cleanly.
 | `/notemind:note-snooze <number> <when>` | Hide a note until later, e.g. `note-snooze 3 tomorrow` or `3 days` |
 | `/notemind:note-done <number>` | Mark a note finished |
 | `/notemind:note-forget <number> \| --project X \| --all` | Permanently delete notes (a project or everything is previewed first) |
+| `/notemind:note-sync [enable \| disable \| status]` | Find commitments in your earlier sessions of this project and save the ones you approve (off until you enable it) |
 | `/notemind:note-tour` | A 2-minute guided tour |
 | `/notemind:note-settings [alert quiet\|normal\|loud]` | How much the startup banner shows |
 | `/notemind:note-help` | This guide |

@@ -8,7 +8,7 @@ Installing the plugin adds these, all inside the plugin folder Claude Code manag
 
 | What | Where |
 |---|---|
-| The `/notemind:note-add`, `note-top`, `note-check`, `note-settings`, `note-today`, `note-list`, `note-edit`, `note-snooze`, `note-done`, `note-ask`, `note-forget`, `note-tour`, `note-board` and `note-help` commands | `skills/` |
+| The `/notemind:note-add`, `note-top`, `note-check`, `note-settings`, `note-today`, `note-list`, `note-edit`, `note-snooze`, `note-done`, `note-ask`, `note-forget`, `note-sync`, `note-tour`, `note-board` and `note-help` commands | `skills/` |
 | One `SessionStart` hook and one `UserPromptSubmit` hook | `hooks/hooks.json` |
 | Your settings, only if you change them (`note-settings`) | `~/.notescos/config.json` |
 | A small launcher that runs the bundled Python code | `scripts/notescos` |
@@ -74,7 +74,7 @@ Limits to know about:
 
 Your stored notes are not changed. The prompt hook also refuses to pass a `note-add` that contains sensitive data to Claude just so it can read a date: it tells you and saves nothing.
 
-Detection is not exhaustive. See the README for what it covers and what it cannot catch.
+Detection is not exhaustive. See [Privacy](privacy.md#sensitive-data-protection) for what it covers and what it cannot catch.
 
 ## The `#note` shortcut and its catch
 
