@@ -52,6 +52,8 @@ You can also start any prompt with `#note` to save a note instantly (see the [pr
 
 In the terminal and VS Code, commands are `/notemind:<name>`. In the Claude app's Code tab, use `/<name>`.
 
+`<n>` is a note's number, the `#` number shown next to it everywhere (for example `#3` in `note-today`). `N` is a plain number: how many notes to show in `note-top [N]`, or a priority of 1 to 3 in `--priority N`. `D` is a date and `X` is a value. Square brackets mean optional.
+
 **Capture**
 
 | Command | What it does |
