@@ -106,8 +106,9 @@ LOCAL_COMMANDS = {
     "note-top": "top", "note-check": "check", "note-settings": "settings",
     "note-forget": "forget",
 }
-# Free-form wording ("move it to friday") is for Claude to turn into options, not an error.
-CLAUDE_READS_FREE_FORM = {"edit", "snooze"}
+# Free-form wording ("move it to friday", "the meeting with sara") is for Claude to turn into
+# options and find the note, not an error.
+CLAUDE_READS_FREE_FORM = {"edit", "snooze", "done", "forget"}
 
 
 def prompt_submit(stdin_text: str, now: datetime, home: Optional[Path] = None) -> Optional[Dict]:
@@ -198,7 +199,8 @@ def _run_locally(command: str, rest: str, now: datetime, home: Path) -> Optional
         with redirect_stderr(err):
             code = main(argv, out=out, now=now)
     except SystemExit:  # arguments the tool does not understand
-        free_form = len(argv) < 3 or not argv[2].startswith("-")
+        no_number = len(argv) > 1 and not argv[1].isdigit() and not argv[1].startswith("-")
+        free_form = no_number or len(argv) < 3 or not argv[2].startswith("-")
         if command in CLAUDE_READS_FREE_FORM and free_form:
             return None  # words like "move it to friday", not options: Claude reads them
         lines = err.getvalue().strip().splitlines()

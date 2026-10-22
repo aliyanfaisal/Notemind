@@ -15,9 +15,9 @@ Show the user this guide as is, formatted cleanly.
 | `/notemind:note-ask <question>` | Ask about your notes, e.g. `note-ask what is pending for Ali?`. Answers cite note numbers. |
 | `/notemind:note-list [--all] [--project X] [--type T] [--from DATE] [--to DATE] [--overdue]` | Browse your notes |
 | `/notemind:note-board [overdue \| due \| next 2 days \| 22 sep]` | Show your notes as a visual board (private Claude artifact or local file) |
-| `/notemind:note-edit <number> [--due X] [--text X] [--priority N] [--alert L] [--project X]` or in words, `note-edit 3 move it to friday` | Change a note |
+| `/notemind:note-edit <number> [--due X] [--text X] [--priority N] [--alert L] [--project X]` or in words, `note-edit 3 move it to friday` or `note-edit change time to 10am for my meeting with sara` | Change a note |
 | `/notemind:note-snooze <number> <when>` | Hide a note until later, e.g. `note-snooze 3 tomorrow` or `3 days` |
-| `/notemind:note-done <number>` | Mark a note finished |
+| `/notemind:note-done <number>` | Mark a note finished (or describe it: `note-done my meeting with sara`) |
 | `/notemind:note-forget <number> \| --project X \| --all` | Permanently delete notes (a project or everything is previewed first) |
 | `/notemind:note-sync [enable \| disable \| status]` | Find commitments in your earlier sessions of this project and save the ones you approve (off until you enable it) |
 | `/notemind:note-tour` | A 2-minute guided tour |

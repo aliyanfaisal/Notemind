@@ -77,9 +77,9 @@ In the terminal and VS Code, commands are `/notemind:<name>`. In the Claude app'
 
 | Command | What it does |
 |---|---|
-| `note-edit <n> [--due X] [--text X] [--priority N] …` | Change a note. Plain words work too: `note-edit 3 move it to friday`. |
-| `note-snooze <n> <when>` | Hide a note until later, e.g. `tomorrow` or `3 days`. |
-| `note-done <n>` | Mark a note finished. |
+| `note-edit <n> [--due X] [--text X] [--priority N] …` | Change a note. Plain words work too: `note-edit 3 move it to friday`, or skip the number: `note-edit change time to 10am for my meeting with sara`. |
+| `note-snooze <n> <when>` | Hide a note until later, e.g. `tomorrow` or `3 days`. Describe the note instead of the number if you like. |
+| `note-done <n>` | Mark a note finished. Or describe it: `note-done my meeting with sara`. |
 | `note-forget <n> \| --project X \| --all` | Delete notes permanently. Projects and "all" are previewed first. |
 
 **Setup**
